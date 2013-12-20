@@ -1,0 +1,14 @@
+{
+
+  // Java verticle
+  "main":"com.deblox.docker.DockerMod",
+
+  "description":"Simple docker client",
+  "licenses": ["The Apache Software License Version 2.0"],
+  "author": "Kegan Holtzhausen",
+
+  "developers": ["Kegan Holtzhausen"],
+  "keywords": ["docker", "deployment", "module"],
+  "homepage": "https://github.com/unixunion/deblox-docker"
+
+}

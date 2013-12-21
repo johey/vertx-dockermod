@@ -25,6 +25,9 @@ import org.vertx.java.core.json.JsonArray;
 import org.vertx.testtools.TestVerticle;
 import org.vertx.java.core.json.JsonObject;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 import static org.vertx.testtools.VertxAssert.*;
 
 /**
@@ -69,35 +72,6 @@ public class ModuleIntegrationTest extends TestVerticle {
     public void testNewContainer() {
         container.logger().info("testNewContainer");
 
-
-
-//        JsonObject requestBody = new JsonObject("{\n" +
-//                "     \"Hostname\":\"\",\n" +
-//                "     \"User\":\"\",\n" +
-//                "     \"Memory\":0,\n" +
-//                "     \"MemorySwap\":0,\n" +
-//                "     \"AttachStdin\":false,\n" +
-//                "     \"AttachStdout\":true,\n" +
-//                "     \"AttachStderr\":true,\n" +
-//                "     \"PortSpecs\":null,\n" +
-//                "     \"Privileged\": false,\n" +
-//                "     \"Tty\":false,\n" +
-//                "     \"OpenStdin\":false,\n" +
-//                "     \"StdinOnce\":false,\n" +
-//                "     \"Env\":null,\n" +
-//                "     \"Cmd\":[\n" +
-//                "             \"date\"\n" +
-//                "     ],\n" +
-//                "     \"Dns\":null,\n" +
-//                "     \"Image\":\"base\",\n" +
-//                "     \"Volumes\":{},\n" +
-//                "     \"VolumesFrom\":\"\",\n" +
-//                "     \"WorkingDir\":\"\"\n" +
-//                "\n" +
-//                "}");
-
-//        JsonObject requestBody = new JsonObject().putString("image", "ubuntu");
-
         JsonObject request = new JsonObject().putString("action", "create-container")
                                              .putString("image", "ubuntu");
 
@@ -115,6 +89,26 @@ public class ModuleIntegrationTest extends TestVerticle {
                 }
             }
         });
+    }
+
+    @Test
+    public void testInspectContainer() throws UnknownHostException {
+        container.logger().info("testInspectContainer");
+
+        JsonObject request = new JsonObject().putString("action", "inspect-container")
+                .putString("id", "foo");
+
+        String hostname = InetAddress.getLocalHost().getHostName();
+
+                vertx.eventBus().send("deblox.docker." + hostname, request, new Handler<Message<JsonObject>>() {
+                    @Override
+                    public void handle(Message<JsonObject> reply) {
+                        System.out.println("Response: " + reply.body());
+                        Number rcode = reply.body().getNumber("statusCode");
+                        assertEquals(rcode, 404);
+                        testComplete();
+                    }
+                });
     }
 
     @Override

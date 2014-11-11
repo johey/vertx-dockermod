@@ -8,6 +8,7 @@ import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
 import org.vertx.java.core.json.JsonObject;
+import org.vertx.java.core.VoidHandler;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
@@ -39,6 +40,11 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         super.stop();
     }
     
+	private void registerHandler(String address) {
+		logger.info("registering: " + address);
+		vertx.eventBus().registerHandler(address, this);
+	}
+	
     @Override
     public void start() {
         /*
@@ -55,12 +61,16 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
 
         clusterAddress = getOptionalStringConfig("clusterAddress", "deblox.docker");
-        String dockerHost = getOptionalStringConfig("dockerHost", "localhost");
+		logger.info("clusterAddress: " + clusterAddress);
+        String dockerHost = getOptionalStringConfig("dockerHost", "app0126.proxmox.swe1.unibet.com");
+		logger.info("dockerHost: " + dockerHost);
         Integer dockerPort = getOptionalIntConfig("dockerPort", 5555);
+		logger.info("dockerPort: " + dockerPort);
 
         // Figure out the hostname so we can subscribe to the private QUEUE for this instance!
         try {
             hostname = getOptionalStringConfig("hostname", InetAddress.getLocalHost().getHostName());
+			logger.info("this machines hostname: " + hostname);
         } catch (UnknownHostException e) {
             logger.warning("unable to determine hostname, this is bad! either pass a config param for Hostname or fix getHostName method to support this OS");
             e.printStackTrace();
@@ -71,15 +81,23 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 .setPort(dockerPort)
                 .setHost(dockerHost)
                 .setMaxPoolSize(10);
+		logger.info("connected to docker daemon");
 
-        vertx.eventBus().registerHandler(clusterAddress, this);
-        vertx.eventBus().registerHandler(clusterAddress + "." + hostname, this);
-        vertx.eventBus().registerHandler(clusterAddress + ".register", this); // address new instances anounce to!
+		logger.info("registering handlers");
+		
+		
+		registerHandler(clusterAddress);
+        registerHandler(clusterAddress + "." + hostname);
+		registerHandler(clusterAddress + ".register"); // address new instances anounce to!
 
-        logger.info("Registering with the cluster");
-
-        // Publish a notification to the cluster to register myself
-        long timerID = vertx.setPeriodic(25, new Handler<Long>() {
+        logger.info("Registering with the dockermod cluster");
+		
+		// the interval between cluster announcements
+		Integer announceInterval = getOptionalIntConfig("announceInterval", 1000);
+		logger.info("announceInterval: " + announceInterval );
+		
+        // Publish a notification to the cluster to register myself periodically
+        long timerID = vertx.setPeriodic(announceInterval, new Handler<Long>() {
             public void handle(Long timerID) {
                 vertx.eventBus().publish(clusterAddress + ".register", new JsonObject()
                         .putString("action", "register")
@@ -87,7 +105,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             }
         });
 
-        logger.info("Up and Registered");
+        logger.info("Startup complete");
     }
 
     @Override
@@ -145,14 +163,18 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         doUnregisterDocker(message);
         logger.info("Registering docker server:" + hostname);
         String hostname = getMandatoryString("hostname", message);
+		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
+		docks.remove(hostname);
         docks.add(hostname);
     }
 
     private void doUnregisterDocker(Message<JsonObject> message) {
         logger.info("Unregistering docker server:" + hostname);
         String hostname = getMandatoryString("hostname", message);
+		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
+		docks.remove(hostname);
     }
 
     private void doHttpRequest(String method, String url,Map headers,  JsonObject body,  final Message<JsonObject> message ) {
@@ -160,62 +182,60 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             @Override
             public void handle(final HttpClientResponse httpClientResponse) {
 
-                logger.info("Got a response: " + httpClientResponse.statusCode());
-                httpClientResponse.dataHandler(new Handler<Buffer>() {
+				// response object
+				final JsonObject response = new JsonObject();
+				// where we store the docker response buffers
+				final Buffer dockerResponse = new Buffer();
 
+                logger.info("Docker response code: " + httpClientResponse.statusCode());
+				response.putNumber("ResponseCode", httpClientResponse.statusCode());
+				
+                httpClientResponse.dataHandler(new Handler<Buffer>() {
                     @Override
                     public void handle(Buffer buffer) {
-                        logger.info("response Buffer: " + buffer);
-                        JsonObject response = new JsonObject();
-                        InetAddress addr = null;
-
-                        for (Map.Entry<String, String> header : httpClientResponse.headers().entries()) {
-                            response.putString(header.getKey(), header.getValue());
-                        }
-
-                        String rbody = null;
-                        try {
-                            rbody = new String(buffer.getBytes(), "UTF-8");
-                            logger.info("String from buffer:" + rbody);
-                        } catch (UnsupportedEncodingException e) {
-                            logger.warning("Unable to read httpreponse buffer to String");
-                            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                        }
-
-                        try {
-                            JsonObject jo = new JsonObject("{ \"Body\":" + rbody + "}");
-                            response.putObject("Response", jo);
-                        } catch (Exception e) {
-                            logger.warning("Unable to convert httpresponse body to JSON object");
-                            logger.warning("Response Body: " + rbody);
-                            e.printStackTrace();
-                        }
-
-                        // Put my hostname into the message so we know where it came from, though It probably should not matter.
-                        response.putString("dockerInstance", hostname);
-                        response.putNumber("statusCode", httpClientResponse.statusCode());
-                        logger.info("Generated Response Message: " + response.toString());
-
-                        try {
-                            message.reply(response);
-                        } catch (Exception e) {
-                            logger.warning("Unable to respond to this message, I hope thats OK");
-                            e.printStackTrace();
-                        }
-
+                        logger.info("Docker response buffer contents: " + buffer);
+						dockerResponse.appendBuffer(buffer);
                     }
                 });
-            }
-        });
+			
+				httpClientResponse.endHandler(new VoidHandler() {
+					@Override
+					protected void handle() {
+						
+						logger.info("Response buffers are all in!");
+						
+						for (Map.Entry<String, String> header : httpClientResponse.headers().entries()) {
+							response.putString(header.getKey(), header.getValue());
+						}
+				
+						try {
+							JsonObject jo = new JsonObject("{\"Body\":" + new String(dockerResponse.getBytes(), "UTF-8") + "}");
+							response.putObject("Response", jo);
+						} catch (UnsupportedEncodingException e) {
+							logger.warning("Unable to read docker response buffer into json response oject");
+							e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+						}
+				
+						// Put my hostname into the message so we know where it came from, though It probably should not matter.
+						response.putString("dockerInstance", hostname);
+						response.putNumber("statusCode", httpClientResponse.statusCode());
+						logger.info("Generated Response Message: " + response.toString());
+			
+						try {
+							message.reply(response);
+						} catch (Exception e) {
+							logger.warning("Unable to respond to this message, I hope thats OK");
+							e.printStackTrace();
+						}
+					}
+				});
+    		}
+		
 
-
-        request.headers().set(headers);
-        request.headers().set("Content-Length", String.valueOf(body.toString().length()));
-        request.write(body.toString());
-        request.end();
-
-
-    }
-
-
+		});
+		request.headers().set(headers);
+		request.headers().set("Content-Length", String.valueOf(body.toString().length()));
+		request.write(body.toString());
+		request.end();
+	}
 }

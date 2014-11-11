@@ -1,5 +1,9 @@
 // Example JSON config file
 
 {
-  "address": "deblox"
+  "clusterAddress": "deblox",
+  "dockerHost": "app0126.proxmox.swe1.unibet.com",
+  "dockerPort": 5555,
+  "restService": true,
+  "announceInterval": 1250
 }

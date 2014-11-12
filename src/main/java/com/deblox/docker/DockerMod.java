@@ -3,6 +3,7 @@ package com.deblox.docker;
 import org.vertx.java.busmods.BusModBase;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
@@ -31,11 +32,12 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private String hostname;
     private Set<String> docks;
     private String clusterAddress;
+    private EventBus eb;
 
 
     public void stop() {
         logger.info("DockerMod Shutting Down, docker instances will remain running");
-        vertx.eventBus().publish(clusterAddress + ".register", new JsonObject()
+        eb.publish(clusterAddress + ".register", new JsonObject()
                 .putString("action", "unregister")
                 .putString("hostname", hostname));
         super.stop();
@@ -43,9 +45,17 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     
 	private void registerHandler(String address) {
 		logger.info("DockerMod instance registering: " + address);
-		vertx.eventBus().registerHandler(address, this);
+		eb.registerHandler(address, this);
 	}
-	
+
+    private void dumpSets() {
+        //good way:
+        Iterator<String> iterator = docks.iterator();
+        while(iterator.hasNext()) {
+            logger.info("docks: " + iterator.next());
+        }
+    }
+
     @Override
     public void start() {
         /*
@@ -57,6 +67,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         super.start();
         logger = Logger.getLogger("dockermod");
         logger.info("DockerMod Starting...");
+        eb = vertx.eventBus();
 
         // Connect to the shared docker instance directory
 
@@ -89,7 +100,10 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		
 		registerHandler(clusterAddress);
         registerHandler(clusterAddress + "." + hostname);
-		registerHandler(clusterAddress + ".register"); // address new instances anounce to!
+
+        if (getOptionalBooleanConfig("registerConsumer", true)) {
+            registerHandler(clusterAddress + ".register"); // address new instances anounce to!
+        }
 
         logger.info("DockerMod Registering with the DockerMod cluster");
 		
@@ -100,7 +114,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         // Publish a notification to the cluster to register myself periodically
         long timerID = vertx.setPeriodic(announceInterval, new Handler<Long>() {
             public void handle(Long timerID) {
-                vertx.eventBus().publish(clusterAddress + ".register", new JsonObject()
+                logger.info("Sending register event to: " + clusterAddress + ".register");
+                eb.publish(clusterAddress + ".register", new JsonObject()
                         .putString("action", "register")
                         .putString("hostname", hostname));
             }
@@ -112,6 +127,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     @Override
     public void handle(final Message<JsonObject> message) {
         logger.info("DockerMod Got message: " + message.body());
+        logger.info("Address: " + message.address());
 
         final String action = getMandatoryString("action", message);
         JsonObject body = message.body().getObject("body", new JsonObject());
@@ -169,23 +185,21 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
     private void doRegisterDocker(Message<JsonObject> message) {
         doUnregisterDocker(message);
-        logger.info("Registering docker server:" + hostname);
         String hostname = getMandatoryString("hostname", message);
+        logger.info("Registering docker server: " + hostname);
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
-		docks.remove(hostname);
         docks.add(hostname);
 //		logger.info("Registered DockerMod instances:");
 //		logger.info(docks.toString());
-
+        dumpSets();
     }
 
     private void doUnregisterDocker(Message<JsonObject> message) {
-        logger.info("Unregistering docker server:" + hostname);
         String hostname = getMandatoryString("hostname", message);
+        logger.info("Unregistering docker server: " + hostname);
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
-		docks.remove(hostname);
     }
 
     private void doHttpRequest(String method, String url,Map headers,  JsonObject body,  final Message<JsonObject> message ) {
@@ -216,12 +230,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 						logger.info("Response buffers are all in!");
 						
 						for (Map.Entry<String, String> header : httpClientResponse.headers().entries()) {
-							response.putString(header.getKey(), header.getValue());
-						}
-
-//                        if (dockerResponse.getBytes().length == 0) {
-//                            dockerResponse.appendString("\"No Response\"");
-//                        }
+                            response.putString(header.getKey(), header.getValue());
+                        }
 
 						try {
 							JsonObject jo = new JsonObject("{\"Body\":" + new String(dockerResponse.getBytes(), "UTF-8") + "}");

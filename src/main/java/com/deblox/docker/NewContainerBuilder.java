@@ -144,7 +144,7 @@ public class NewContainerBuilder {
                 .setAttachedStdin(false)
                 .setAttachStderr(true)
                 .setAttachStdout(true)
-                .setPortSpecs(new JsonArray().add("5555"))
+                .setPortSpecs(new JsonArray().add("8080"))
                 .setPrivileged(false)
                 .setTty(false)
                 .setOpenStdin(false)

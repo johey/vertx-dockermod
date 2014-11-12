@@ -22,6 +22,9 @@ DockerMod speaks json over messagebus.
 ### Daemon
 ./gradlew runMod -i
 
+### FatJar cluster
+ /opt/jdk1.7.0_72/bin/java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster   -cluster-host app0126.proxmox.swe1.unibet.com
+
 ### Register DockerMod Instance
 announce a new DockerMod instance to the cluster, used when adding a docker daemon to the pool.
 

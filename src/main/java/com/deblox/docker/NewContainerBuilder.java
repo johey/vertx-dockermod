@@ -134,6 +134,8 @@ public class NewContainerBuilder {
 
         Integer[] ports = new Integer[1];
 
+        env.put("PATH", "/bin;/usr/bin");
+
         // Defaults if just image is specified
         NewContainer container = setHostname("")
                 .setUser("")
@@ -148,7 +150,7 @@ public class NewContainerBuilder {
                 .setOpenStdin(false)
                 .setStdinOnce(false)
                 .setEnv(env)
-                .setCmd(new JsonArray().add("date"))
+                .setCmd(new JsonArray().add("/bin/ping").add("8.8.8.8"))
                 .setDns(null)
                 .setImage(image)
                 .setVolumes(new JsonObject())

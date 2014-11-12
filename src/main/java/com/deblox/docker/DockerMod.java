@@ -7,6 +7,7 @@ import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
+import org.vertx.java.core.json.DecodeException;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.VoidHandler;
 
@@ -147,7 +148,14 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             case "create-container":
                 String image = getMandatoryString("image", message);
                 body = new NewContainerBuilder().createC(image).toJson();
+                logger.info("Creating instance: " + body.toString());
                 url = "/containers/create";
+                method = "POST";
+                doHttpRequest(method, url, map, body, message);
+                break;
+            case "start-container":
+                logger.info("Starting instance: " + getMandatoryString("id", message));
+                url = "/containers/" + getMandatoryString("id", message) + "/start";
                 method = "POST";
                 doHttpRequest(method, url, map, body, message);
                 break;
@@ -190,7 +198,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 				final Buffer dockerResponse = new Buffer();
 
                 logger.info("Docker response code: " + httpClientResponse.statusCode());
-				response.putNumber("Response-Code", httpClientResponse.statusCode());
+				response.putNumber("statusCode", httpClientResponse.statusCode());
 				
                 httpClientResponse.dataHandler(new Handler<Buffer>() {
                     @Override
@@ -209,18 +217,30 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 						for (Map.Entry<String, String> header : httpClientResponse.headers().entries()) {
 							response.putString(header.getKey(), header.getValue());
 						}
-				
+
+//                        if (dockerResponse.getBytes().length == 0) {
+//                            dockerResponse.appendString("\"No Response\"");
+//                        }
+
 						try {
 							JsonObject jo = new JsonObject("{\"Body\":" + new String(dockerResponse.getBytes(), "UTF-8") + "}");
 							response.putObject("Response", jo);
 						} catch (UnsupportedEncodingException e) {
-							logger.warning("Unable to read docker response buffer into json response oject");
+							logger.warning("Unable to read docker response buffer into json response object");
 							e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
 						}
+                        catch (DecodeException e) {
+                            logger.warning("not a json response,relying on response-code");
+                            try {
+                                response.putString("Response", new String(dockerResponse.getBytes(), "UTF-8"));
+                            } catch (UnsupportedEncodingException e1) {
+                                e1.printStackTrace();
+                            }
+                        }
 				
 						// Put my hostname into the message so we know where it came from, though It probably should not matter.
 						response.putString("dockerInstance", hostname);
-						response.putNumber("statusCode", httpClientResponse.statusCode());
+//						response.putNumber("statusCode", httpClientResponse.statusCode());
 						logger.info("Generated Response Message: " + response.toString());
 			
 						try {

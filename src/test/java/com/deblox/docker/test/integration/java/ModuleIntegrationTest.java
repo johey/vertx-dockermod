@@ -91,6 +91,53 @@ public class ModuleIntegrationTest extends TestVerticle {
         });
     }
 
+
+    @Test
+    public void testStartContainer() {
+        container.logger().info("testStartContainer");
+
+        JsonObject request = new JsonObject().putString("action", "create-container")
+                .putString("image", "ubuntu");
+
+        vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+            @Override
+            public void handle(Message<JsonObject> reply) {
+                try {
+                    System.out.println("Response: " + reply.body());
+                    JsonObject body = reply.body().getObject("Response").getObject("Body");
+                    assertNotNull(body.getString("Id"));
+
+                    // start the container
+                    JsonObject request = new JsonObject().putString("action", "start-container")
+                            .putString("id", body.getString("Id"));
+
+
+                    vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+                        @Override
+                        public void handle(Message<JsonObject> reply) {
+                            try {
+                                System.out.println("Response: " + reply.body());
+//                                JsonObject body = reply.body().getObject("Response").getObject("Body");
+                                assertNotNull(reply.body().getNumber("statusCode"));
+                                testComplete();
+
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                throw e;
+                            }
+                        }
+                    });
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw e;
+                }
+            }
+        });
+    }
+
+
     @Test
     public void testInspectContainer() throws UnknownHostException {
         container.logger().info("testInspectContainer");

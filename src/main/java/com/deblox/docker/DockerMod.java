@@ -33,7 +33,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
 
     public void stop() {
-        logger.info("Shutting down...");
+        logger.info("DockerMod Shutting Down, docker instances will remain running");
         vertx.eventBus().publish(clusterAddress + ".register", new JsonObject()
                 .putString("action", "unregister")
                 .putString("hostname", hostname));
@@ -41,7 +41,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     }
     
 	private void registerHandler(String address) {
-		logger.info("registering: " + address);
+		logger.info("DockerMod instance registering: " + address);
 		vertx.eventBus().registerHandler(address, this);
 	}
 	
@@ -55,7 +55,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         docks =  vertx.sharedData().getSet("docks");
         super.start();
         logger = Logger.getLogger("dockermod");
-        logger.info("Starting...");
+        logger.info("DockerMod Starting...");
 
         // Connect to the shared docker instance directory
 
@@ -70,7 +70,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         // Figure out the hostname so we can subscribe to the private QUEUE for this instance!
         try {
             hostname = getOptionalStringConfig("hostname", InetAddress.getLocalHost().getHostName());
-			logger.info("this machines hostname: " + hostname);
+			logger.info("DockerMod machine hostname: " + hostname);
         } catch (UnknownHostException e) {
             logger.warning("unable to determine hostname, this is bad! either pass a config param for Hostname or fix getHostName method to support this OS");
             e.printStackTrace();
@@ -81,20 +81,20 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 .setPort(dockerPort)
                 .setHost(dockerHost)
                 .setMaxPoolSize(10);
-		logger.info("connected to docker daemon");
+		logger.info("DockerMod connected to the docker daemon");
 
-		logger.info("registering handlers");
+		logger.info("DockerMod registering handlers");
 		
 		
 		registerHandler(clusterAddress);
         registerHandler(clusterAddress + "." + hostname);
 		registerHandler(clusterAddress + ".register"); // address new instances anounce to!
 
-        logger.info("Registering with the dockermod cluster");
+        logger.info("DockerMod Registering with the DockerMod cluster");
 		
 		// the interval between cluster announcements
 		Integer announceInterval = getOptionalIntConfig("announceInterval", 1000);
-		logger.info("announceInterval: " + announceInterval );
+		logger.info("DockerMod announceInterval: " + announceInterval );
 		
         // Publish a notification to the cluster to register myself periodically
         long timerID = vertx.setPeriodic(announceInterval, new Handler<Long>() {
@@ -105,12 +105,12 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             }
         });
 
-        logger.info("Startup complete");
+        logger.info("DockerMod Startup complete");
     }
 
     @Override
     public void handle(final Message<JsonObject> message) {
-        logger.info("Got message: " + message.body());
+        logger.info("DockerMod Got message: " + message.body());
 
         final String action = getMandatoryString("action", message);
         JsonObject body = message.body().getObject("body", new JsonObject());
@@ -167,6 +167,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         docks.remove(hostname);
 		docks.remove(hostname);
         docks.add(hostname);
+		logger.info("Registered DockerMod instances:");
+		logger.info(docks.toString());
     }
 
     private void doUnregisterDocker(Message<JsonObject> message) {
@@ -188,7 +190,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 				final Buffer dockerResponse = new Buffer();
 
                 logger.info("Docker response code: " + httpClientResponse.statusCode());
-				response.putNumber("ResponseCode", httpClientResponse.statusCode());
+				response.putNumber("Response-Code", httpClientResponse.statusCode());
 				
                 httpClientResponse.dataHandler(new Handler<Buffer>() {
                     @Override

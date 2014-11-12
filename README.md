@@ -13,6 +13,15 @@ grant instance control anywhere in the cluster.
 ## Json Messages
 DockerMod speaks json over messagebus.
 
+
+## Running (dev mode)
+
+### Tests
+./gradlew test -i
+
+### Daemon
+./gradlew runMod -i
+
 ### Register DockerMod Instance
 announce a new DockerMod instance to the cluster, used when adding a docker daemon to the pool.
 

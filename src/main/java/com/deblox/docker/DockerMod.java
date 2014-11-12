@@ -175,8 +175,9 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         docks.remove(hostname);
 		docks.remove(hostname);
         docks.add(hostname);
-		logger.info("Registered DockerMod instances:");
-		logger.info(docks.toString());
+//		logger.info("Registered DockerMod instances:");
+//		logger.info(docks.toString());
+
     }
 
     private void doUnregisterDocker(Message<JsonObject> message) {

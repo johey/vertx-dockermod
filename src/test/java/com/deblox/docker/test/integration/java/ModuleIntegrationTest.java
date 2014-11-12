@@ -56,7 +56,7 @@ public class ModuleIntegrationTest extends TestVerticle {
 
     @Test
     public void testListImages() {
-        container.logger().info("testListComponent");
+        container.logger().info("testListImages");
         vertx.eventBus().send("deblox.docker", new JsonObject().putString("action", "list-images"), new Handler<Message<JsonObject>>() {
             @Override
             public void handle(Message<JsonObject> reply) {

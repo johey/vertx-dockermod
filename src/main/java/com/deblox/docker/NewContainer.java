@@ -32,6 +32,7 @@ public class NewContainer {
     final JsonObject Volumes;
     final String VolumesFrom;
     final String WorkingDir;
+//    final JsonObject ExposedPorts;
 
     public NewContainer(String hostname, String user, Integer memory, Integer memorySwap, boolean attachedStdin, boolean attachStdout, boolean attachStderr, JsonArray portSpecs, boolean privileged, boolean tty, boolean openStdin, boolean stdinOnce, Map<String, Object> env, JsonArray cmd, String dns, String image, JsonObject volumes, String volumesFrom, String workingDir) {
 
@@ -54,8 +55,10 @@ public class NewContainer {
         this.Volumes = volumes;
         this.VolumesFrom = volumesFrom;
         this.WorkingDir = workingDir;
+//        this.ExposedPorts = exposedPorts;
     }
 
+    // rput everything into the a json object and return it
     public JsonObject toJson() {
         JsonObject gen = new JsonObject();
         gen.putString("Hostname", this.Hostname);
@@ -65,8 +68,8 @@ public class NewContainer {
         gen.putBoolean("AttachedStdin", this.AttachedStdin);
         gen.putBoolean("AttachStdout", this.AttachStdout);
         gen.putBoolean("AttachStderr", this.AttachStderr);
-        gen.putObject("PortSpecs", null);
-        //gen.putArray("PortSpecs", this.PortSpecs);
+//        gen.putObject("PortSpecs", null);
+        gen.putArray("PortSpecs", this.PortSpecs);
         gen.putBoolean("Privileged", this.Privileged);
         gen.putBoolean("Tty", this.Tty);
         gen.putBoolean("OpenStdin", this.OpenStdin);
@@ -79,6 +82,7 @@ public class NewContainer {
         gen.putObject("Volumes", this.Volumes);
         gen.putString("VolumesFrom", this.VolumesFrom);
         gen.putString("WorkingDir", this.WorkingDir);
+//        gen.putObject("ExposedPorts", this.ExposedPorts);
         return gen;
     }
 }

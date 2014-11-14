@@ -26,6 +26,13 @@ public class NewContainerBuilder {
     private JsonObject volumes = new JsonObject();
     private String volumesFrom = "";
     private String workingDir = "";
+    private JsonObject exposedPorts = new JsonObject();
+
+    /*
+    "ExposedPorts":{
+                 "22/tcp": {}
+         },
+     */
 
     public NewContainerBuilder setHostname(String hostname) {
         this.hostname = hostname;
@@ -62,8 +69,14 @@ public class NewContainerBuilder {
         return this;
     }
 
+    // Networking Port Exposure
     public NewContainerBuilder setPortSpecs(JsonArray portSpecs) {
         this.portSpecs = portSpecs;
+        return this;
+    }
+
+    public NewContainerBuilder addPortSpec(String port) {
+        this.portSpecs.addString(port);
         return this;
     }
 
@@ -132,7 +145,7 @@ public class NewContainerBuilder {
 //        Map<String, Object> envmap = null;
 //        envmap.put("", "");
 
-        Integer[] ports = new Integer[1];
+//        Integer[] ports = new Integer[1];
 
         env.put("PATH", "/bin;/usr/bin");
 
@@ -144,7 +157,8 @@ public class NewContainerBuilder {
                 .setAttachedStdin(false)
                 .setAttachStderr(true)
                 .setAttachStdout(true)
-                .setPortSpecs(new JsonArray().add("8080"))
+                .setPortSpecs(new JsonArray().addString("80"))
+                .addPortSpec("22/udp")
                 .setPrivileged(false)
                 .setTty(false)
                 .setOpenStdin(false)
@@ -156,6 +170,7 @@ public class NewContainerBuilder {
                 .setVolumes(new JsonObject())
                 .setVolumesFrom("")
                 .setWorkingDir("")
+//                .setExposedPorts(new JsonObject().putObject("22/tcp", new JsonObject()))
                 .createNewContainer();
 
         return container;

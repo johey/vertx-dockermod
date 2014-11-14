@@ -12,6 +12,7 @@ import org.vertx.java.core.json.DecodeException;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.VoidHandler;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -140,8 +141,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         JsonObject headers = message.body()
                 .getObject("headers", new JsonObject()
                         .putString("Accept", "application/json")
+                        .putString("Content-Type", "application/json")
                 );
-
         Map map = headers.toMap();
 
 
@@ -162,9 +163,26 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 doHttpRequest(method, url, map, body, message);
                 break;
             case "create-container":
-                String image = getMandatoryString("image", message);
-                body = new NewContainerBuilder().createC(image).toJson();
+                body = new NewContainerBuilder().createC( getMandatoryString("image", message) ).toJson();
                 logger.info("Creating instance: " + body.toString());
+                url = "/containers/create";
+                method = "POST";
+                doHttpRequest(method, url, map, body, message);
+                break;
+            case "create-raw-container":
+                body = getMandatoryObject("body", message);
+                doHttpRequest(method, url, map, body, message);
+            case "create-unibet-container":
+                // Create a container from a JSON template
+                logger.info("attempting to load template: " + getMandatoryString("template", message));
+                try {
+                    body = Util.loadConfig(this, "/templates/" + getMandatoryString("template", message) + ".json");
+                } catch (IOException e) {
+                    logger.warning("unable to open template, does it exist?");
+                    e.printStackTrace();
+                }
+                //body = read file
+                logger.info("Creating templated instance: " + body.toString());
                 url = "/containers/create";
                 method = "POST";
                 doHttpRequest(method, url, map, body, message);
@@ -190,8 +208,6 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
         docks.add(hostname);
-//		logger.info("Registered DockerMod instances:");
-//		logger.info(docks.toString());
         dumpSets();
     }
 
@@ -201,6 +217,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
     }
+
+
 
     private void doHttpRequest(String method, String url,Map headers,  JsonObject body,  final Message<JsonObject> message ) {
         HttpClientRequest request = client.request(method, url , new Handler<HttpClientResponse>() {

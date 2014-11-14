@@ -92,6 +92,76 @@ public class ModuleIntegrationTest extends TestVerticle {
     }
 
 
+//    @Test
+//    public void testUnibetNewContainer() {
+//        container.logger().info("testUnibetNewContainer");
+//
+//        JsonObject request = new JsonObject().putString("action", "create-unibet-container")
+//                .putString("template", "test");
+//
+//        vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+//            @Override
+//            public void handle(Message<JsonObject> reply) {
+//                try {
+//                    System.out.println("Response: " + reply.body());
+//                    JsonObject body = reply.body().getObject("Response").getObject("Body");
+//                    assertNotNull(body.getString("Id"));
+//                    testComplete();
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                    throw e;
+//                }
+//            }
+//        });
+//    }
+
+
+
+    @Test
+    public void testUnibetNewContainer() {
+        container.logger().info("testStartContainer");
+
+        JsonObject request = new JsonObject().putString("action", "create-unibet-container")
+                .putString("template", "test");
+
+        vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+            @Override
+            public void handle(Message<JsonObject> reply) {
+                try {
+                    System.out.println("Response: " + reply.body());
+                    JsonObject body = reply.body().getObject("Response").getObject("Body");
+                    assertNotNull(body.getString("Id"));
+
+                    // start the container
+                    JsonObject request = new JsonObject().putString("action", "start-container")
+                            .putString("id", body.getString("Id"));
+
+
+                    vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+                        @Override
+                        public void handle(Message<JsonObject> reply) {
+                            try {
+                                System.out.println("Response: " + reply.body());
+                                assertNotNull(reply.body().getNumber("statusCode"));
+                                testComplete();
+
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                throw e;
+                            }
+                        }
+                    });
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw e;
+                }
+            }
+        });
+    }
+
+
     @Test
     public void testStartContainer() {
         container.logger().info("testStartContainer");
@@ -138,25 +208,93 @@ public class ModuleIntegrationTest extends TestVerticle {
     }
 
 
+//    @Test
+//    public void testInspectContainer() throws UnknownHostException {
+//        container.logger().info("testInspectContainer");
+//
+//        JsonObject request = new JsonObject().putString("action", "inspect-container")
+//                .putString("id", "foo");
+//
+//        String hostname = InetAddress.getLocalHost().getHostName();
+//
+//                vertx.eventBus().send("deblox.docker." + hostname, request, new Handler<Message<JsonObject>>() {
+//                    @Override
+//                    public void handle(Message<JsonObject> reply) {
+//                        System.out.println("Response: " + reply.body());
+//                        Number rcode = reply.body().getNumber("statusCode");
+//                        assertEquals(rcode, 404);
+//                        testComplete();
+//                    }
+//                });
+//    }
+
+
     @Test
-    public void testInspectContainer() throws UnknownHostException {
-        container.logger().info("testInspectContainer");
+    public void testInspectContainer() {
+        container.logger().info("testStartContainer");
 
-        JsonObject request = new JsonObject().putString("action", "inspect-container")
-                .putString("id", "foo");
+        JsonObject request = new JsonObject().putString("action", "create-unibet-container")
+                .putString("template", "test");
 
-        String hostname = InetAddress.getLocalHost().getHostName();
+        vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+            @Override
+            public void handle(Message<JsonObject> reply) {
+                try {
+                    System.out.println("Response: " + reply.body());
+                    JsonObject body = reply.body().getObject("Response").getObject("Body");
+                    final String id = body.getString("Id");
+                    assertNotNull(body.getString("Id"));
 
-                vertx.eventBus().send("deblox.docker." + hostname, request, new Handler<Message<JsonObject>>() {
-                    @Override
-                    public void handle(Message<JsonObject> reply) {
-                        System.out.println("Response: " + reply.body());
-                        Number rcode = reply.body().getNumber("statusCode");
-                        assertEquals(rcode, 404);
-                        testComplete();
-                    }
-                });
+                    // start the container
+                    JsonObject request = new JsonObject().putString("action", "start-container")
+                            .putString("id", id);
+
+
+                    vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
+                        @Override
+                        public void handle(Message<JsonObject> reply) {
+
+                            try {
+                                JsonObject request = new JsonObject().putString("action", "inspect-container")
+                                        .putString("id", id);
+
+                                String hostname = "localhost";
+
+                                try {
+                                    hostname = InetAddress.getLocalHost().getHostName();
+                                } catch (UnknownHostException e) {
+                                    e.printStackTrace();
+                                    fail();
+                                }
+
+                                vertx.eventBus().send("deblox.docker." + hostname, request, new Handler<Message<JsonObject>>() {
+                                    @Override
+                                    public void handle(Message<JsonObject> reply) {
+                                        System.out.println("Response: " + reply.body());
+                                        Number rcode = reply.body().getNumber("statusCode");
+                                        assertEquals(rcode, 200);
+                                        testComplete();
+                                    }
+                                });
+
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                throw e;
+                            }
+                        }
+                    });
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw e;
+                }
+            }
+        });
     }
+
+
+
 
     @Override
     public void start() {

@@ -1,0 +1,32 @@
+{
+  "Hostname": "TESTNODE",
+  "User": "",
+  "Memory": 0,
+  "MemorySwap": 0,
+  "AttachedStdin": false,
+  "AttachStdout": true,
+  "AttachStderr": true,
+  "PortSpecs": [
+    "80",
+    "22"
+  ],
+  "Privileged": false,
+  "Tty": false,
+  "OpenStdin": false,
+  "StdinOnce": false,
+  "Env": null,
+  "Cmd": [
+    "\/bin\/ping",
+    "8.8.8.8"
+  ],
+  "Dns": null,
+  "Image": "ubuntu",
+  "Volumes": {
+
+  },
+  "VolumesFrom": "",
+  "WorkingDir": "",
+  "HostConfig": {
+    "PublishAllPorts":true
+  }
+}

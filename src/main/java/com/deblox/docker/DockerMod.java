@@ -20,6 +20,7 @@ import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 
@@ -32,7 +33,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private HttpClient client;
     private Logger logger;
     private String hostname;
-    private Set<String> docks;
+    private Set<String> docks; // store information about other instances of dockermod
+    private ConcurrentMap<String, JsonObject> containers;
     private String clusterAddress;
     private String localAddress;
     private EventBus eb;
@@ -71,6 +73,9 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         logger = Logger.getLogger("dockermod");
         logger.info("DockerMod Starting...");
         eb = vertx.eventBus();
+
+        // store containers in a shared map
+        containers = vertx.sharedData().getMap("deblox.containers");
 
         // Connect to the shared docker instance directory
 
@@ -236,6 +241,13 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             @Override
             public void handle(Message<JsonObject> reply) {
                 System.out.println("Response: " + reply.body());
+                Iterator containerIterator = reply.body().getObject("Response").getArray("Body").iterator();
+
+                for ( Iterator<JsonObject>container = containerIterator; containerIterator.hasNext(); ) {
+                    JsonObject tc = container.next();
+                    logger.info(tc.toString());
+                    logger.info("Container Id: " + tc.getString("Id") + ", status: " + tc.getString("Status") );
+                }
 
             }
         });

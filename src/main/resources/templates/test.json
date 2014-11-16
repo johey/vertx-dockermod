@@ -3,7 +3,7 @@
   "User": "",
   "Memory": 0,
   "MemorySwap": 0,
-  "AttachedStdin": false,
+  "AttachedStdin": true,
   "AttachStdout": true,
   "AttachStderr": true,
   "PortSpecs": [
@@ -11,8 +11,8 @@
     "22"
   ],
   "Privileged": false,
-  "Tty": false,
-  "OpenStdin": false,
+  "Tty": true,
+  "OpenStdin": true,
   "StdinOnce": false,
   "Env": null,
   "Cmd": [

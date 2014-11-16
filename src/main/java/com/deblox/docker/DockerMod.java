@@ -9,6 +9,7 @@ import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
 import org.vertx.java.core.json.DecodeException;
+import org.vertx.java.core.json.JsonArray;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.VoidHandler;
 
@@ -33,6 +34,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private String hostname;
     private Set<String> docks;
     private String clusterAddress;
+    private String localAddress;
     private EventBus eb;
 
 
@@ -74,6 +76,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
 
         clusterAddress = getOptionalStringConfig("clusterAddress", "deblox.docker");
+        localAddress = clusterAddress + "." + hostname;
+
 		logger.info("clusterAddress: " + clusterAddress);
         String dockerHost = getOptionalStringConfig("dockerHost", "app0126.proxmox.swe1.unibet.com");
 		logger.info("dockerHost: " + dockerHost);
@@ -97,14 +101,12 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		logger.info("DockerMod connected to the docker daemon");
 
 		logger.info("DockerMod registering handlers");
-		
-		
 		registerHandler(clusterAddress);
-        registerHandler(clusterAddress + "." + hostname);
+        registerHandler(localAddress);
 
-        if (getOptionalBooleanConfig("registerConsumer", true)) {
-            registerHandler(clusterAddress + ".register"); // address new instances anounce to!
-        }
+//        if (getOptionalBooleanConfig("registerConsumer", true)) {
+//            registerHandler(clusterAddress + ".register"); // address new instances anounce to!
+//        }
 
         logger.info("DockerMod Registering with the DockerMod cluster");
 		
@@ -113,7 +115,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		logger.info("DockerMod announceInterval: " + announceInterval );
 		
         // Publish a notification to the cluster to register myself periodically
-        long timerID = vertx.setPeriodic(announceInterval, new Handler<Long>() {
+        long announceTimer = vertx.setPeriodic(announceInterval, new Handler<Long>() {
             public void handle(Long timerID) {
                 logger.info("Sending register event to: " + clusterAddress + ".register");
                 eb.publish(clusterAddress + ".register", new JsonObject()
@@ -121,6 +123,17 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                         .putString("hostname", hostname));
             }
         });
+
+
+        Integer trackingServiceInterval = getOptionalIntConfig("trackingServiceInterval", 10000);
+        logger.info("DockerMod trackingServiceInterval: " + announceInterval );
+        long trackingServiceTimer = vertx.setPeriodic(trackingServiceInterval, new Handler<Long>() {
+            public void handle(Long timerID) {
+                logger.info("Calling Tracking Service");
+                doContainerTrackingUpdate();
+            }
+        });
+
 
         logger.info("DockerMod Startup complete");
     }
@@ -145,7 +158,6 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 );
         Map map = headers.toMap();
 
-
         switch (action)
         {
             case "register":
@@ -155,7 +167,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 doUnregisterDocker(message);
                 break;
             case "list-containers":
-                url = "/containers/json";
+                url = "/containers/json?all=1";
                 doHttpRequest(method, url, map, body, message);
                 break;
             case "list-images":
@@ -218,7 +230,16 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         docks.remove(hostname);
     }
 
+    // call the docker and list the containers both running and stopped, and update the local cache
+    private void doContainerTrackingUpdate() {
+        eb.send(localAddress, new JsonObject().putString("action", "list-containers"), new Handler<Message<JsonObject>>() {
+            @Override
+            public void handle(Message<JsonObject> reply) {
+                System.out.println("Response: " + reply.body());
 
+            }
+        });
+    }
 
     private void doHttpRequest(String method, String url,Map headers,  JsonObject body,  final Message<JsonObject> message ) {
         HttpClientRequest request = client.request(method, url , new Handler<HttpClientResponse>() {

@@ -167,6 +167,86 @@ Response
 }
 ```
 
+### List Containers
+lists all running and stopped containers on the docker daemon instance.
+
+Request
+```
+{
+  "action": "list-containers"
+}
+```
+
+Response
+```
+{
+   "statusCode":200,
+   "Content-Type":"application/json",
+   "Date":"Sat, 15 Nov 2014 09:11:27 GMT",
+   "Transfer-Encoding":"chunked",
+   "Response":{
+      "Body":[
+         {
+            "Command":"/bin/ping 8.8.8.8",
+            "Created":1416042687,
+            "Id":"35077fddff8f6e3b37a5db558f517401591d86ac9d2bd214383f8dfd9c58dd61",
+            "Image":"ubuntu:14.04",
+            "Names":[
+               "/ecstatic_brown"
+            ],
+            "Ports":[
+
+            ],
+            "Status":""
+         },
+         {
+            "Command":"/bin/ping 8.8.8.8",
+            "Created":1416042687,
+            "Id":"0265cf31ffae88e2aee2840a6ed17327ebdbf0e4e86b24a079e5bf9dcf8a7b61",
+            "Image":"ubuntu:14.04",
+            "Names":[
+               "/romantic_ptolemy"
+            ],
+            "Ports":[
+               {
+                  "IP":"0.0.0.0",
+                  "PrivatePort":22,
+                  "PublicPort":49192,
+                  "Type":"tcp"
+               },
+               {
+                  "IP":"0.0.0.0",
+                  "PrivatePort":80,
+                  "PublicPort":49191,
+                  "Type":"tcp"
+               }
+            ],
+            "Status":"Up Less than a second"
+         },
+         {
+            "Command":"/bin/ping 8.8.8.8",
+            "Created":1416042686,
+            "Id":"9f70454093d5a54822d7b2e2cf3ceeb2dc30e3d51725329a0054d7d57182a48d",
+            "Image":"ubuntu:14.04",
+            "Names":[
+               "/mad_lumiere"
+            ],
+            "Ports":[
+               {
+                  "PrivatePort":80,
+                  "Type":"tcp"
+               },
+               {
+                  "PrivatePort":22,
+                  "Type":"udp"
+               }
+            ],
+            "Status":"Up Less than a second"
+         }
+      ]
+   }
+```
+
 
 {"action":"inspect-container","id":"foo"}
 

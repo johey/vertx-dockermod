@@ -6,5 +6,6 @@
   "dockerPort": 5555,
   "restService": true,
   "announceInterval": 1250,
-  "registerConsumer": true
+  "registerConsumer": true,
+  "trackingServiceInterval": 10000
 }

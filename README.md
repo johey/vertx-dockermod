@@ -67,10 +67,24 @@ Request
 }
 ```
 
+```
+curl -X   POST --data '{"action": "create-container", "image": "ubuntu"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+```
+
 Response
 ```
 {
-    "Id": "f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead"
+    "Content-Length": "90",
+    "Content-Type": "application/json",
+    "Date": "Mon, 17 Nov 2014 15:26:28 GMT",
+    "Response": {
+        "Body": {
+            "Id": "7bdff256bef437208eb6949397e3989626ab4e1e7b2330ed3a954ed004874a9e",
+            "Warnings": null
+        }
+    },
+    "dockerInstance": "app0127.proxmox.swe1.unibet.com",
+    "statusCode": 201
 }
 ```
 
@@ -78,7 +92,7 @@ A queue called f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead 
 
 ### Create Unibet Container
 
-curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+
 
 Request
 ```
@@ -87,6 +101,10 @@ Request
     "template": "sometemplatename",
     "instances": 2
 }
+```
+
+```
+curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
 ```
 
 Response
@@ -121,12 +139,10 @@ Request
 Response
 ```
 {
-  "statusCode": 204,
-  "Date": "Wed, 12 Nov 2014 14:44:25 GMT",
-  "Content-Length": "0",
-  "Content-Type": "text\/plain; charset=utf-8",
-  "Response": "",
-  "dockerInstance": "sthmaclt009.local"
+    "Date": "Mon, 17 Nov 2014 15:28:05 GMT",
+    "Response": "",
+    "dockerInstance": "app0127.proxmox.swe1.unibet.com",
+    "statusCode": 204
 }
 ```
 

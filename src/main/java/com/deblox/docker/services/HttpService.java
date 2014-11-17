@@ -57,19 +57,27 @@ public class HttpService extends BusModBase {
                         JsonObject document = new JsonObject(event.toString());
                         String address = clusterAddress;
 
-                        // if start-container is requested, set the queue to the instance ID
-                        switch(document.getString("action")) {
-                            case "start-container":
-                                logger.info("Setting queue to instance ID: " +document.getString("id") );
-                                address = document.getString("id");
+//                        // if start-container is requested, set the queue to the instance ID
+//                        switch(document.getString("action")) {
+//                            case "start-container":
+//                                logger.info("Setting queue to instance ID: " +document.getString("id") );
+//                                address = document.getString("id");
+//                        }
+
+                        // if an id is in the request, direct the call to it
+                        if (document.getString("id", null) != null) {
+                            logger.info("Setting queue to instance ID: " +document.getString("id") );
+                            address = document.getString("id");
                         }
 
                         logger.info("HttpService got rest request " + document.toString());
                         logger.info("HttpService Forwarding request to cluster...");
+
+                        
                         eventBus.send(address, document, new Handler<Message<JsonObject>>() {
                             public void handle(Message<JsonObject> message) {
                                 logger.info("HttpService got response from MSGBUS: " + message.body().toString());
-                                if (message.body().getString("status")!="error") {
+                                if (message.body().getString("status") != "error") {
                                     logger.info("HttpService got response");
                                     req.response().end(message.body().toString());
                                 } else {

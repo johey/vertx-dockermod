@@ -207,6 +207,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                     public void handle(JsonObject event) {
                         logger.info("Async Create Container Result: " + event.toString());
                         registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
+                        message.reply(event);
                     }
                 });
                 break;

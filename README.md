@@ -11,7 +11,7 @@ DockerMod automatically clusters and using the webui on any one node should
 grant instance control anywhere in the cluster.
 
 ## Json Messages
-DockerMod speaks json over messagebus.
+DockerMod speaks json over messagebus. The HttpService accepts json documents via POST.
 
 
 ## Running (dev mode)
@@ -24,6 +24,11 @@ DockerMod speaks json over messagebus.
 
 ### FatJar cluster
  /opt/jdk1.7.0_72/bin/java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host app0126.proxmox.swe1.unibet.com
+
+### Some Curl Tests
+
+curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+
 
 ### Register DockerMod Instance
 announce a new DockerMod instance to the cluster, used when adding a docker daemon to the pool.
@@ -73,7 +78,7 @@ A queue called f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead 
 
 ### Create Unibet Container
 
- curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
 
 Request
 ```

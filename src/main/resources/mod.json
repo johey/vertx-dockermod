@@ -1,7 +1,7 @@
 {
 
   // Java verticle
-  "main":"com.deblox.docker.DockerMod",
+  "main":"com.deblox.docker.Boot",
 
   "description":"Simple docker client",
   "licenses": ["The Apache Software License Version 2.0"],

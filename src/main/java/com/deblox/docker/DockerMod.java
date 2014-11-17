@@ -1,6 +1,7 @@
 package com.deblox.docker;
 
 import org.vertx.java.busmods.BusModBase;
+import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.eventbus.EventBus;
@@ -34,12 +35,12 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private Logger logger;
     private String hostname;
     private Set<String> docks; // store information about other instances of dockermod
-    private ConcurrentMap<String, JsonObject> containers;
+    private ConcurrentMap<String, String> containers;
     private String clusterAddress;
     private String localAddress;
     private EventBus eb;
 
-
+    // shutdown hook
     public void stop() {
         logger.info("DockerMod Shutting Down, docker instances will remain running");
         eb.publish(clusterAddress + ".register", new JsonObject()
@@ -47,73 +48,86 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 .putString("hostname", hostname));
         super.stop();
     }
-    
+
+    // called when we want to subscribe to eventbus
 	private void registerHandler(String address) {
-		logger.info("DockerMod instance registering: " + address);
+		logger.info("DockerMod registering with queue: " + address);
 		eb.registerHandler(address, this);
 	}
 
+    // debug stuff
     private void dumpSets() {
         //good way:
         Iterator<String> iterator = docks.iterator();
         while(iterator.hasNext()) {
             logger.info("docks: " + iterator.next());
         }
+
+        for (Map.Entry<String,String> e: containers.entrySet()) {
+            logger.info("containers entry: " + e.getKey() + " contents: " + e.getValue());
+        }
+
     }
 
     @Override
     public void start() {
         /*
 
-        Startup, read config data / set defaults and subscribe to the messageBus
+        Startup, read config data / set defaults, call registerHandler
 
          */
-        docks =  vertx.sharedData().getSet("docks");
+
+
         super.start();
+
         logger = Logger.getLogger("dockermod");
         logger.info("DockerMod Starting...");
+        logger.info("Setting up eventbus");
         eb = vertx.eventBus();
 
-        // store containers in a shared map
+        // store containers and dockermod cluster info in a shared map
+        docks =  vertx.sharedData().getSet("docks");
         containers = vertx.sharedData().getMap("deblox.containers");
 
-        // Connect to the shared docker instance directory
-
-
-        clusterAddress = getOptionalStringConfig("clusterAddress", "deblox.docker");
-        localAddress = clusterAddress + "." + hostname;
-
-		logger.info("clusterAddress: " + clusterAddress);
-        String dockerHost = getOptionalStringConfig("dockerHost", "app0126.proxmox.swe1.unibet.com");
-		logger.info("dockerHost: " + dockerHost);
-        Integer dockerPort = getOptionalIntConfig("dockerPort", 5555);
-		logger.info("dockerPort: " + dockerPort);
 
         // Figure out the hostname so we can subscribe to the private QUEUE for this instance!
         try {
             hostname = getOptionalStringConfig("hostname", InetAddress.getLocalHost().getHostName());
-			logger.info("DockerMod machine hostname: " + hostname);
+            logger.info("DockerMod machine hostname: " + hostname);
         } catch (UnknownHostException e) {
             logger.warning("unable to determine hostname, this is bad! either pass a config param for Hostname or fix getHostName method to support this OS");
             e.printStackTrace();
             super.stop();
         }
 
+
+        // queues and topics
+        clusterAddress = getOptionalStringConfig("clusterAddress", "deblox.docker");
+        localAddress = clusterAddress + "." + hostname;
+        logger.info("clusterAddress: " + clusterAddress);
+        logger.info("localAddress: " + localAddress);
+
+
+        // subscribe
+        logger.info("DockerMod registering handlers");
+        registerHandler(clusterAddress);
+        registerHandler(localAddress);
+
+
+        // Connect to the shared docker instance directory
+        String dockerHost = getOptionalStringConfig("dockerHost", "app0126.proxmox.swe1.unibet.com");
+		logger.info("dockerHost: " + dockerHost);
+        Integer dockerPort = getOptionalIntConfig("dockerPort", 5555);
+		logger.info("dockerPort: " + dockerPort);
+
+
+        // actual dockerd client
         client = vertx.createHttpClient()
                 .setPort(dockerPort)
                 .setHost(dockerHost)
                 .setMaxPoolSize(10);
 		logger.info("DockerMod connected to the docker daemon");
 
-		logger.info("DockerMod registering handlers");
-		registerHandler(clusterAddress);
-        registerHandler(localAddress);
-
-//        if (getOptionalBooleanConfig("registerConsumer", true)) {
-//            registerHandler(clusterAddress + ".register"); // address new instances anounce to!
-//        }
-
-        logger.info("DockerMod Registering with the DockerMod cluster");
 		
 		// the interval between cluster announcements
 		Integer announceInterval = getOptionalIntConfig("announceInterval", 1000);
@@ -122,7 +136,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         // Publish a notification to the cluster to register myself periodically
         long announceTimer = vertx.setPeriodic(announceInterval, new Handler<Long>() {
             public void handle(Long timerID) {
-                logger.info("Sending register event to: " + clusterAddress + ".register");
+//                logger.info("DockerMod Registering with the DockerMod cluster");
+                logger.info("DockerMod sending register event to: " + clusterAddress + ".register");
                 eb.publish(clusterAddress + ".register", new JsonObject()
                         .putString("action", "register")
                         .putString("hostname", hostname));
@@ -136,9 +151,9 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             public void handle(Long timerID) {
                 logger.info("Calling Tracking Service");
                 doContainerTrackingUpdate();
+                dumpSets();
             }
         });
-
 
         logger.info("DockerMod Startup complete");
     }
@@ -184,26 +199,27 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 logger.info("Creating instance: " + body.toString());
                 url = "/containers/create";
                 method = "POST";
-                doHttpRequest(method, url, map, body, message);
+
+                // compare the ports requirements to this hosts state, ...
+
+                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
+                    @Override
+                    public void handle(JsonObject event) {
+                        logger.info("Async Create Container Result: " + event.toString());
+                        registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
+                    }
+                });
                 break;
             case "create-raw-container":
                 body = getMandatoryObject("body", message);
                 doHttpRequest(method, url, map, body, message);
-            case "create-unibet-container":
-                // Create a container from a JSON template
-                logger.info("attempting to load template: " + getMandatoryString("template", message));
-                try {
-                    body = Util.loadConfig(this, "/templates/" + getMandatoryString("template", message) + ".json");
-                } catch (IOException e) {
-                    logger.warning("unable to open template, does it exist?");
-                    e.printStackTrace();
-                }
-                //body = read file
-                logger.info("Creating templated instance: " + body.toString());
-                url = "/containers/create";
-                method = "POST";
-                doHttpRequest(method, url, map, body, message);
                 break;
+
+            case "shutdown-container":
+                // lb calls
+                // shutdown call
+                // remove
+
             case "start-container":
                 logger.info("Starting instance: " + getMandatoryString("id", message));
                 url = "/containers/" + getMandatoryString("id", message) + "/start";
@@ -215,6 +231,39 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 url = "/containers/" + imageId + "/json";
                 doHttpRequest(method, url, map, body, message);
                 break;
+            case "create-unibet-container":
+                // Create a container from a JSON template
+                logger.info("attempting to load template: " + getMandatoryString("template", message));
+
+
+//                eb.send("someaddres", "some message", new Handler<Message<? extends Object>>() {
+//                    @Override
+//                    public void handle(Message<? extends Object> event) {
+//
+//                    }
+//                })
+
+                try {
+                    body = Util.loadConfig(this, "/templates/" + getMandatoryString("template", message) + ".json");
+                } catch (IOException e) {
+                    logger.warning("unable to open template, does it exist?");
+                    e.printStackTrace();
+                }
+                //body = read file
+                logger.info("Creating templated instance: " + body.toString());
+                url = "/containers/create";
+                method = "POST";
+                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
+                    @Override
+                    public void handle(JsonObject event) {
+                        logger.info("Async Create Container Result: " + event.toString());
+                        registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
+                    }
+                });
+                break;
+            default:
+                message.reply(new JsonObject().putString("error", "no such action is supported"));
+                break;
         }
     }
 
@@ -225,7 +274,6 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
         docks.add(hostname);
-        dumpSets();
     }
 
     private void doUnregisterDocker(Message<JsonObject> message) {
@@ -247,50 +295,54 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                     JsonObject tc = container.next();
                     logger.info(tc.toString());
                     logger.info("Container Id: " + tc.getString("Id") + ", status: " + tc.getString("Status") );
+                    containers.remove(tc.getString("Id"));
+                    containers.put(tc.getString("Id"), tc.toString());
+                    registerHandler(tc.getString("Id"));
                 }
 
             }
         });
     }
 
-    private void doHttpRequest(String method, String url,Map headers,  JsonObject body,  final Message<JsonObject> message ) {
+
+    private void doAsyncHttpRequest(String method, String url, Map headers, JsonObject body, final Message<JsonObject> message, final Handler<JsonObject> callback) {
         HttpClientRequest request = client.request(method, url , new Handler<HttpClientResponse>() {
             @Override
             public void handle(final HttpClientResponse httpClientResponse) {
 
-				// response object
-				final JsonObject response = new JsonObject();
-				// where we store the docker response buffers
-				final Buffer dockerResponse = new Buffer();
+                // response object
+                final JsonObject response = new JsonObject();
+                // where we store the docker response buffers
+                final Buffer dockerResponse = new Buffer();
 
                 logger.info("Docker response code: " + httpClientResponse.statusCode());
-				response.putNumber("statusCode", httpClientResponse.statusCode());
-				
+                response.putNumber("statusCode", httpClientResponse.statusCode());
+
                 httpClientResponse.dataHandler(new Handler<Buffer>() {
                     @Override
                     public void handle(Buffer buffer) {
                         logger.info("Docker response buffer contents: " + buffer);
-						dockerResponse.appendBuffer(buffer);
+                        dockerResponse.appendBuffer(buffer);
                     }
                 });
-			
-				httpClientResponse.endHandler(new VoidHandler() {
-					@Override
-					protected void handle() {
-						
-						logger.info("Response buffers are all in!");
-						
-						for (Map.Entry<String, String> header : httpClientResponse.headers().entries()) {
+
+                httpClientResponse.endHandler(new VoidHandler() {
+                    @Override
+                    protected void handle() {
+
+                        logger.info("Response buffers are all in!");
+
+                        for (Map.Entry<String, String> header : httpClientResponse.headers().entries()) {
                             response.putString(header.getKey(), header.getValue());
                         }
 
-						try {
-							JsonObject jo = new JsonObject("{\"Body\":" + new String(dockerResponse.getBytes(), "UTF-8") + "}");
-							response.putObject("Response", jo);
-						} catch (UnsupportedEncodingException e) {
-							logger.warning("Unable to read docker response buffer into json response object");
-							e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-						}
+                        try {
+                            JsonObject jo = new JsonObject("{\"Body\":" + new String(dockerResponse.getBytes(), "UTF-8") + "}");
+                            response.putObject("Response", jo);
+                        } catch (UnsupportedEncodingException e) {
+                            logger.warning("Unable to read docker response buffer into json response object");
+                            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                        }
                         catch (DecodeException e) {
                             logger.warning("not a json response,relying on response-code");
                             try {
@@ -299,27 +351,32 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                                 e1.printStackTrace();
                             }
                         }
-				
-						// Put my hostname into the message so we know where it came from, though It probably should not matter.
-						response.putString("dockerInstance", hostname);
-//						response.putNumber("statusCode", httpClientResponse.statusCode());
-						logger.info("Generated Response Message: " + response.toString());
-			
-						try {
-							message.reply(response);
-						} catch (Exception e) {
-							logger.warning("Unable to respond to this message, I hope thats OK");
-							e.printStackTrace();
-						}
-					}
-				});
-    		}
-		
 
-		});
-		request.headers().set(headers);
-		request.headers().set("Content-Length", String.valueOf(body.toString().length()));
-		request.write(body.toString());
-		request.end();
+                        // Put my hostname into the message so we know where it came from, though It probably should not matter.
+                        response.putString("dockerInstance", hostname);
+//						response.putNumber("statusCode", httpClientResponse.statusCode());
+                        logger.info("Generated Response Message: " + response.toString());
+
+                        try {
+                            message.reply(response);
+                            if (callback!=null) {
+                                callback.handle(response); // TODO FIXME
+                            }
+                        } catch (Exception e) {
+                            logger.warning("Unable to respond to this message, I hope thats OK");
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            }
+        });
+        request.headers().set(headers);
+        request.headers().set("Content-Length", String.valueOf(body.toString().length()));
+        request.write(body.toString());
+        request.end();
+    }
+
+    private void doHttpRequest(String method, String url,Map headers,  JsonObject body, final Message<JsonObject> message ) {
+        doAsyncHttpRequest(method, url, headers, body, message, null);
 	}
 }

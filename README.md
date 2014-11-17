@@ -52,7 +52,7 @@ Request
 No Response
 
 ### Create Container
-new containers are requested with messages like:
+When new containers are created, an eventbus for that container ID is created.
 
 Request
 ```
@@ -68,6 +68,8 @@ Response
     "Id": "f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead"
 }
 ```
+
+A queue called f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead is created within the eventbus.
 
 ### Start Container
 start a previously created container

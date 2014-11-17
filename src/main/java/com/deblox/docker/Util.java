@@ -11,6 +11,8 @@ import java.io.InputStreamReader;
  * Created by keghol on 13/11/14.
  */
 public class Util {
+
+    // load a json file and return the json object
     static public JsonObject loadConfig(Object o, String file) throws IOException {
         System.out.println("loading file: " + file);
         try (InputStream stream = o.getClass().getResourceAsStream(file)) {
@@ -33,4 +35,5 @@ public class Util {
         }
 
     }
+
 }

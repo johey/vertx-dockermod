@@ -173,7 +173,7 @@ public class ModuleIntegrationTest extends TestVerticle {
             @Override
             public void handle(Message<JsonObject> reply) {
                 try {
-                    System.out.println("Response: " + reply.body());
+                    System.out.println("testStartContainer Response: " + reply.body());
                     JsonObject body = reply.body().getObject("Response").getObject("Body");
                     assertNotNull(body.getString("Id"));
 
@@ -186,7 +186,7 @@ public class ModuleIntegrationTest extends TestVerticle {
                         @Override
                         public void handle(Message<JsonObject> reply) {
                             try {
-                                System.out.println("Response: " + reply.body());
+                                System.out.println("testStartContainer Response: " + reply.body());
 //                                JsonObject body = reply.body().getObject("Response").getObject("Body");
                                 assertNotNull(reply.body().getNumber("statusCode"));
                                 testComplete();
@@ -236,6 +236,7 @@ public class ModuleIntegrationTest extends TestVerticle {
         JsonObject request = new JsonObject().putString("action", "create-unibet-container")
                 .putString("template", "test");
 
+        container.logger().info("testStartContainer sending request");
         vertx.eventBus().send("deblox.docker", request, new Handler<Message<JsonObject>>() {
             @Override
             public void handle(Message<JsonObject> reply) {
@@ -314,6 +315,7 @@ public class ModuleIntegrationTest extends TestVerticle {
                 assertNotNull("deploymentID should not be null", asyncResult.result());
 
                 // If deployed correctly then start the tests!
+                container.logger().info("Deployment Success");
                 startTests();
             }
         });

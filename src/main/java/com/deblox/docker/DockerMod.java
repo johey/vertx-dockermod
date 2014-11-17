@@ -235,7 +235,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 // Create a container from a JSON template
                 logger.info("attempting to load template: " + getMandatoryString("template", message));
 
-
+//              if we wanted say 4 instances, create one on this node, then send the following while blocking IO to force other nodes to take traffic
 //                eb.send("someaddres", "some message", new Handler<Message<? extends Object>>() {
 //                    @Override
 //                    public void handle(Message<? extends Object> event) {
@@ -253,11 +253,36 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 logger.info("Creating templated instance: " + body.toString());
                 url = "/containers/create";
                 method = "POST";
+
                 doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
                     @Override
-                    public void handle(JsonObject event) {
-                        logger.info("Async Create Container Result: " + event.toString());
-                        registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
+                    public void handle(final JsonObject httpevent) {
+                        logger.info("Async Create Container Result: " + httpevent.toString());
+
+                        // Register the container queue
+                        registerHandler(httpevent.getObject("Response").getObject("Body").getString("Id"));
+
+                        // if instances requested, call the rest of the cluster to arms!
+                        if (message.body().getInteger("instances", 0) > 0) {
+
+                            logger.info("Calling the rest of the herd to create more instances");
+                            message.body().putNumber("instances", (message.body().getInteger("instances") - 1));
+                            logger.info("Instances left to create: " + message.body().getInteger("instances"));
+
+                            eb.send(clusterAddress, message.body(), new Handler<Message<JsonObject>>() {
+                                @Override
+                                public void handle(Message<JsonObject> event) {
+                                    logger.info("And its done!, extending the array");
+                                    JsonArray instanceArray = event.body().getArray("instanceArray", new JsonArray());
+                                    instanceArray.addObject(new JsonObject(httpevent.toString()));
+                                    message.reply(event.body().putArray("instanceArray", instanceArray));
+                                }
+                            });
+                        } else {
+                            message.reply(httpevent);
+                        }
+
+
                     }
                 });
                 break;
@@ -358,9 +383,10 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                         logger.info("Generated Response Message: " + response.toString());
 
                         try {
-                            message.reply(response);
                             if (callback!=null) {
                                 callback.handle(response); // TODO FIXME
+                            } else {
+                                message.reply(response);
                             }
                         } catch (Exception e) {
                             logger.warning("Unable to respond to this message, I hope thats OK");

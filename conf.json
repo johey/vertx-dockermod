@@ -1,6 +1,8 @@
 // Example JSON config file
 
 {
+  "main": "com.deblox.docker.DockerMod",
+  "services": ["com.deblox.docker.services.ContainerTrackingService", "com.deblox.docker.services.HttpService"],
   "clusterAddress": "deblox",
   "dockerHost": "app0126.proxmox.swe1.unibet.com",
   "dockerPort": 5555,

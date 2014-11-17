@@ -71,6 +71,37 @@ Response
 
 A queue called f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead is created within the eventbus.
 
+### Create Unibet Container
+
+ curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+
+Request
+```
+{
+    "action": "create-unibet-container",
+    "template": "sometemplatename",
+    "instances": 2
+}
+```
+
+Response
+```
+{
+   "statusCode":201,
+   "Content-Type":"application/json",
+   "Date":"Mon, 17 Nov 2014 14:56:51 GMT",
+   "Content-Length":"90",
+   "Response":{
+      "Body":{
+         "Id":"04e0c6011814734d5a00174b79bbdf175fdf71a00ac8d42440c10cec4f5e89ff",
+         "Warnings":null
+      }
+   },
+   "dockerInstance":"sthmaclt009.local"
+}
+```
+
+
 ### Start Container
 start a previously created container
 

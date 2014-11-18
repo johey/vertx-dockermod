@@ -31,7 +31,7 @@ curl -X   POST --data '{"action": "create-unibet-container", "template": "test",
 
 
 ### Register DockerMod Instance
-announce a new DockerMod instance to the cluster, used when adding a docker daemon to the pool.
+announce a new DockerMod instance in the cluster, used when adding a docker daemon to the pool.
 
 Request
 ```
@@ -56,74 +56,82 @@ Request
 
 No Response
 
+
+
 ### Create Container
-When new containers are created, an eventbus for that container ID is created.
 
-Request
-```
-{
-    "action": "create-container",
-    "image": "ubuntu"
-}
-```
-
-```
-curl -X   POST --data '{"action": "create-container", "image": "ubuntu"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
-```
-
-Response
-```
-{
-    "Content-Length": "90",
-    "Content-Type": "application/json",
-    "Date": "Mon, 17 Nov 2014 15:26:28 GMT",
-    "Response": {
-        "Body": {
-            "Id": "7bdff256bef437208eb6949397e3989626ab4e1e7b2330ed3a954ed004874a9e",
-            "Warnings": null
-        }
-    },
-    "dockerInstance": "app0127.proxmox.swe1.unibet.com",
-    "statusCode": 201
-}
-```
-
-A queue called f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead is created within the eventbus.
-
-### Create Unibet Container
-
+Create a new container either from template or by specifying OS image to use. New instances are automatically subscribed to a queue
+matching the Id of the container.
 
 
 Request
 ```
 {
     "action": "create-unibet-container",
-    "template": "sometemplatename",
-    "instances": 2
+    "template": "sometemplatename", // if present, load a template
+    "image": ubuntu, // ignored if template is present, specified OS image to use
+    "instances": 2 // number of instances to boot round-robin in the cluster
 }
 ```
 
+Curl Request
 ```
-curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+curl -X   POST --data '{"action": "create-container", "template": "test", "instances": 2}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+
+curl -X   POST --data '{"action": "create-container", "image": "ubuntu"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
 ```
 
-Response
+Response if instances specified
+
 ```
 {
-   "statusCode":201,
-   "Content-Type":"application/json",
-   "Date":"Mon, 17 Nov 2014 14:56:51 GMT",
-   "Content-Length":"90",
-   "Response":{
-      "Body":{
-         "Id":"04e0c6011814734d5a00174b79bbdf175fdf71a00ac8d42440c10cec4f5e89ff",
-         "Warnings":null
-      }
-   },
-   "dockerInstance":"sthmaclt009.local"
+    "containers": [
+        {
+            "Content-Length": "90",
+            "Content-Type": "application/json",
+            "Date": "Tue, 18 Nov 2014 11:43:59 GMT",
+            "Response": {
+                "Body": {
+                    "Id": "adda8bf806b8e37c99fb8c477203e950bfcedabaefebd5b2d285f55cbd73da94",
+                    "Warnings": null
+                }
+            },
+            "dockerInstance": "unisthlt035.unibet.com",
+            "statusCode": 201
+        },
+        {
+            "Content-Length": "90",
+            "Content-Type": "application/json",
+            "Date": "Tue, 18 Nov 2014 11:43:59 GMT",
+            "Response": {
+                "Body": {
+                    "Id": "dc1fc364cefe5d232b8c632fbc335cdeaab79a4f8fd6eefa57dff2e6185379ba",
+                    "Warnings": null
+                }
+            },
+            "dockerInstance": "unisthlt035.unibet.com",
+            "statusCode": 201
+        }
+    ]
 }
 ```
 
+Response if instances NOT specified
+```
+{
+    "Content-Length": "90",
+    "Content-Type": "application/json",
+    "Date": "Tue, 18 Nov 2014 11:47:32 GMT",
+    "Response": {
+        "Body": {
+            "Id": "949c89ef28bef7accf6258a5502830ae71c33d98a9ffddbe46a80430324de630",
+            "Warnings": null
+        }
+    },
+    "dockerInstance": "unisthlt035.unibet.com",
+    "statusCode": 201
+}
+```
 
 ### Start Container
 start a previously created container
@@ -301,8 +309,169 @@ Response
    }
 ```
 
+### Inspect Container
+get all the details about a container, ports and everything!
 
-{"action":"inspect-container","id":"foo"}
+Request
+```
+{
+    "action": "inspect-container",
+    "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
+}
+```
+
+Curl Request
+```
+curl -X  POST --data '{"action": "inspect-container", "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+```
+
+Response
+```
+{
+    "Content-Length": "1526",
+    "Content-Type": "application/json",
+    "Date": "Tue, 18 Nov 2014 11:54:04 GMT",
+    "Response": {
+        "Body": {
+            "Args": [
+                "8.8.8.8"
+            ],
+            "Config": {
+                "AttachStderr": true,
+                "AttachStdin": false,
+                "AttachStdout": true,
+                "Cmd": [
+                    "/bin/ping",
+                    "8.8.8.8"
+                ],
+                "CpuShares": 0,
+                "Cpuset": "",
+                "Domainname": "",
+                "Entrypoint": null,
+                "Env": [
+                    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                ],
+                "ExposedPorts": {
+                    "22/tcp": {},
+                    "80/tcp": {}
+                },
+                "Hostname": "TESTNODE",
+                "Image": "ubuntu",
+                "Memory": 0,
+                "MemorySwap": 0,
+                "NetworkDisabled": false,
+                "OnBuild": null,
+                "OpenStdin": true,
+                "PortSpecs": null,
+                "SecurityOpt": null,
+                "StdinOnce": false,
+                "Tty": true,
+                "User": "",
+                "Volumes": null,
+                "WorkingDir": ""
+            },
+            "Created": "2014-11-18T11:53:05.805794722Z",
+            "Driver": "devicemapper",
+            "ExecDriver": "native-0.2",
+            "HostConfig": {
+                "Binds": null,
+                "CapAdd": null,
+                "CapDrop": null,
+                "ContainerIDFile": "",
+                "Devices": null,
+                "Dns": null,
+                "DnsSearch": null,
+                "ExtraHosts": null,
+                "Links": null,
+                "LxcConf": null,
+                "NetworkMode": "",
+                "PortBindings": null,
+                "Privileged": false,
+                "PublishAllPorts": true,
+                "RestartPolicy": {
+                    "MaximumRetryCount": 0,
+                    "Name": ""
+                },
+                "VolumesFrom": null
+            },
+            "HostnamePath": "",
+            "HostsPath": "",
+            "Id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f",
+            "Image": "5506de2b643be1e6febbf3b8a240760c6843244c41e12aa2f60ccbb7153d17f5",
+            "MountLabel": "",
+            "Name": "/backstabbing_mestorf",
+            "NetworkSettings": {
+                "Bridge": "",
+                "Gateway": "",
+                "IPAddress": "",
+                "IPPrefixLen": 0,
+                "MacAddress": "",
+                "PortMapping": null,
+                "Ports": null
+            },
+            "Path": "/bin/ping",
+            "ProcessLabel": "",
+            "ResolvConfPath": "",
+            "State": {
+                "ExitCode": 0,
+                "FinishedAt": "0001-01-01T00:00:00Z",
+                "Paused": false,
+                "Pid": 0,
+                "Restarting": false,
+                "Running": false,
+                "StartedAt": "0001-01-01T00:00:00Z"
+            },
+            "Volumes": null,
+            "VolumesRW": null
+        }
+    },
+    "dockerInstance": "app0126.proxmox.swe1.unibet.com",
+    "statusCode": 200
+}
+```
+
+### Create Raw Container
+
+Usefule if you want to post raw Docker API container spec to the servers
+
+Request
+```
+{
+    "action": "create-raw-container",
+    "body": json document as per docker API specs
+}
+```
+
+Response
+```
+See Create Container
+```
+
+### Stop Container
+
+Request
+```
+{
+    "action": "stop-container",
+    "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
+}
+```
+
+Curl Request
+```
+ curl -X  POST --data '{"action": "stop-container", "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+```
+
+### Restart Container
+
+Request
+```
+{
+    "action": "restart-container",
+    "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
+}
+```
+
 
 ## Laws
 * When a dockermod instance starts up, it sends/publishes a message to the cluster action:register. hostname:FQDN.

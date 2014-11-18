@@ -12,6 +12,7 @@ import org.vertx.java.core.json.JsonObject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Set;
 import java.util.logging.Logger;
 
 public class HttpService extends BusModBase {
@@ -25,6 +26,8 @@ public class HttpService extends BusModBase {
     private String localAddress;
     private String hostname;
 
+    private Set<String> docks;
+
     @Override
     public void start() {
         super.start();
@@ -32,6 +35,9 @@ public class HttpService extends BusModBase {
         logger.info("HttpService starting up");
         eventBus = vertx.eventBus();
         routeMatcher = new RouteMatcher();
+
+        // where we store info about the cluster dockermod nodes
+        docks = vertx.sharedData().getSet("docks");
 
         // Figure out the hostname so we can subscribe to the private QUEUE for this instance!
         try {
@@ -73,7 +79,8 @@ public class HttpService extends BusModBase {
                         logger.info("HttpService got rest request " + document.toString());
                         logger.info("HttpService Forwarding request to cluster...");
 
-                        
+
+
                         eventBus.send(address, document, new Handler<Message<JsonObject>>() {
                             public void handle(Message<JsonObject> message) {
                                 logger.info("HttpService got response from MSGBUS: " + message.body().toString());

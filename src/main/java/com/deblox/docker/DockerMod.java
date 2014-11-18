@@ -1,7 +1,6 @@
 package com.deblox.docker;
 
 import org.vertx.java.busmods.BusModBase;
-import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.eventbus.EventBus;
@@ -10,7 +9,6 @@ import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
 import org.vertx.java.core.json.DecodeException;
-import org.vertx.java.core.json.JsonArray;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.VoidHandler;
 
@@ -18,9 +16,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
@@ -76,10 +72,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         Startup, read config data / set defaults, call registerHandler
 
          */
-
-
         super.start();
-
         logger = Logger.getLogger("dockermod");
         logger.info("DockerMod Starting...");
         logger.info("Setting up eventbus");
@@ -100,34 +93,30 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             super.stop();
         }
 
-
         // queues and topics
         clusterAddress = getOptionalStringConfig("clusterAddress", "deblox.docker");
         localAddress = clusterAddress + "." + hostname;
         logger.info("clusterAddress: " + clusterAddress);
         logger.info("localAddress: " + localAddress);
 
-
         // subscribe
         logger.info("DockerMod registering handlers");
         registerHandler(clusterAddress);
         registerHandler(localAddress);
+        registerHandler(clusterAddress + ".register");
 
-
-        // Connect to the shared docker instance directory
+        // which docker daemon to connect to
         String dockerHost = getOptionalStringConfig("dockerHost", "app0126.proxmox.swe1.unibet.com");
 		logger.info("dockerHost: " + dockerHost);
         Integer dockerPort = getOptionalIntConfig("dockerPort", 5555);
 		logger.info("dockerPort: " + dockerPort);
 
-
-        // actual dockerd client
+        // actual dockerd client connection
         client = vertx.createHttpClient()
                 .setPort(dockerPort)
                 .setHost(dockerHost)
                 .setMaxPoolSize(10);
 		logger.info("DockerMod connected to the docker daemon");
-
 		
 		// the interval between cluster announcements
 		Integer announceInterval = getOptionalIntConfig("announceInterval", 1000);
@@ -136,8 +125,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         // Publish a notification to the cluster to register myself periodically
         long announceTimer = vertx.setPeriodic(announceInterval, new Handler<Long>() {
             public void handle(Long timerID) {
-//                logger.info("DockerMod Registering with the DockerMod cluster");
-                logger.info("DockerMod sending register event to: " + clusterAddress + ".register");
+//                logger.info("DockerMod sending register event to: " + clusterAddress + ".register");
                 eb.publish(clusterAddress + ".register", new JsonObject()
                         .putString("action", "register")
                         .putString("hostname", hostname));
@@ -149,7 +137,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         logger.info("DockerMod trackingServiceInterval: " + announceInterval );
         long trackingServiceTimer = vertx.setPeriodic(trackingServiceInterval, new Handler<Long>() {
             public void handle(Long timerID) {
-                logger.info("Calling Tracking Service");
+//                logger.info("Calling Tracking Service");
                 doContainerTrackingUpdate();
                 dumpSets();
             }
@@ -183,34 +171,39 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
             case "register":
                 doRegisterDocker(message);
                 break;
+
             case "unregister":
                 doUnregisterDocker(message);
                 break;
+
             case "list-containers":
                 url = "/containers/json?all=1";
                 doHttpRequest(method, url, map, body, message);
                 break;
+
             case "list-images":
                 url = "/images/json";
                 doHttpRequest(method, url, map, body, message);
                 break;
-            case "create-container":
-                body = new NewContainerBuilder().createC( getMandatoryString("image", message) ).toJson();
-                logger.info("Creating instance: " + body.toString());
-                url = "/containers/create";
-                method = "POST";
 
-                // compare the ports requirements to this hosts state, ...
+//            case "create-container":
+//                body = new NewContainerBuilder().createC( getMandatoryString("image", message) ).toJson();
+//                logger.info("Creating instance: " + body.toString());
+//                url = "/containers/create";
+//                method = "POST";
+//
+//                // compare the ports requirements to this hosts state, ...
+//
+//                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
+//                    @Override
+//                    public void handle(JsonObject event) {
+//                        logger.info("Async Create Container Result: " + event.toString());
+//                        registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
+//                        message.reply(event);
+//                    }
+//                });
+//                break;
 
-                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
-                    @Override
-                    public void handle(JsonObject event) {
-                        logger.info("Async Create Container Result: " + event.toString());
-                        registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
-                        message.reply(event);
-                    }
-                });
-                break;
             case "create-raw-container":
                 body = getMandatoryObject("body", message);
                 doHttpRequest(method, url, map, body, message);
@@ -220,72 +213,118 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 // lb calls
                 // shutdown call
                 // remove
+                break;
+
+            case "restart-container":
+                logger.info("Restarting container: " + getMandatoryString("id", message));
+                url = "/containers/" + getMandatoryString("id", message) + "/restart";
+                method = "POST";
+                doHttpRequest(method, url, map, body, message);
+                break;
+
+            case "stop-container":
+                logger.info("Stopping container: " + getMandatoryString("id", message));
+                url = "/containers/" + getMandatoryString("id", message) + "/kill";
+                method = "POST";
+                doHttpRequest(method, url, map, body, message);
+                break;
 
             case "start-container":
-                logger.info("Starting instance: " + getMandatoryString("id", message));
+                logger.info("Starting container: " + getMandatoryString("id", message));
                 url = "/containers/" + getMandatoryString("id", message) + "/start";
                 method = "POST";
                 doHttpRequest(method, url, map, body, message);
                 break;
+
             case "inspect-container":
                 String imageId = getMandatoryString("id", message);
                 url = "/containers/" + imageId + "/json";
                 doHttpRequest(method, url, map, body, message);
                 break;
-            case "create-unibet-container":
-                // Create a container from a JSON template
-                logger.info("attempting to load template: " + getMandatoryString("template", message));
 
-//              if we wanted say 4 instances, create one on this node, then send the following while blocking IO to force other nodes to take traffic
-//                eb.send("someaddres", "some message", new Handler<Message<? extends Object>>() {
-//                    @Override
-//                    public void handle(Message<? extends Object> event) {
-//
-//                    }
-//                })
+            case "create-container":
 
-                try {
-                    body = Util.loadConfig(this, "/templates/" + getMandatoryString("template", message) + ".json");
-                } catch (IOException e) {
-                    logger.warning("unable to open template, does it exist?");
-                    e.printStackTrace();
+                // check if template is specified
+                if (message.body().containsField("template")) {
+                    logger.info("attempting to load template: " + getMandatoryString("template", message));
+                    // load the son template, TODO make the path a configurable
+                    try {
+                        body = Util.loadConfig(this, "/templates/" + getMandatoryString("template", message) + ".json");
+                    } catch (IOException e) {
+                        logger.warning("unable to open template, does it exist?");
+                        e.printStackTrace();
+                    }
+                } else {
+                    body = new NewContainerBuilder().createC(getMandatoryString("image", message)).toJson();
                 }
-                //body = read file
-                logger.info("Creating templated instance: " + body.toString());
+
+                logger.info("Creating container: " + body.toString());
                 url = "/containers/create";
                 method = "POST";
 
-                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
-                    @Override
-                    public void handle(final JsonObject httpevent) {
-                        logger.info("Async Create Container Result: " + httpevent.toString());
+                // if the message containes the field instances, prepare to spawn many across the cluster
+                if (message.body().containsField("instances")) {
+//                if (message.body().getInteger("instances", 0) != 0) {
+                    logger.info("Creating multiple containers because instances is present");
 
-                        // Register the container queue
-                        registerHandler(httpevent.getObject("Response").getObject("Body").getString("Id"));
 
-                        // if instances requested, call the rest of the cluster to arms!
-                        if (message.body().getInteger("instances", 0) > 0) {
+                    // copy the docks list of other docker instances
+                    Set<String> tmpDocks = docks; // copy the docks list
+//                    tmpDocks.remove(hostname); // pop myself
+                    final Iterator<String> d = tmpDocks.iterator(); // randomize how TODO FIXME
 
-                            logger.info("Calling the rest of the herd to create more instances");
-                            message.body().putNumber("instances", (message.body().getInteger("instances") - 1));
-                            logger.info("Instances left to create: " + message.body().getInteger("instances"));
+                    // for count loop
+                    Integer count = message.body().getInteger("instances", 1);
+                    if (count == 0) { count =1; }
+                    Integer x;
 
-                            eb.send(clusterAddress, message.body(), new Handler<Message<JsonObject>>() {
-                                @Override
-                                public void handle(Message<JsonObject> event) {
-                                    logger.info("And its done!, extending the array");
-                                    JsonArray instanceArray = event.body().getArray("instanceArray", new JsonArray());
-                                    instanceArray.addObject(new JsonObject(httpevent.toString()));
-                                    message.reply(event.body().putArray("instanceArray", instanceArray));
-                                }
-                            });
-                        } else {
-                            message.reply(httpevent);
+                    // remove instances from the original message to prevent loop
+                    message.body().removeField("instances");
+
+                    // concentrator of responses + callback handler
+                    final ResponseConcentrator rc = new ResponseConcentrator();
+                    rc.setExpectedResponseCount(count);
+                    rc.setOriginalMessage(message);
+
+                    // loop for the desired count
+                    for (x=1; x<=count; x++) {
+
+                        // set the address to the next node in the cluster
+                        String address;
+                        try {
+                            address = clusterAddress + "." + d.next();
+                        } catch (NoSuchElementException e) {
+                            logger.warning("No more nodes, defaulting to the cluster in its entirety");
+                            address = clusterAddress;
                         }
 
 
+                        eb.send(address, message.body(), new Handler<Message<JsonObject>>() {
+                            @Override
+                            public void handle(Message<JsonObject> event) {
+                                rc.resultUpdate(event.body());
+                            }
+                        });
+
                     }
-                });
+
+                } else {
+                    doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
+                        @Override
+                        public void handle(final JsonObject httpevent) {
+                            logger.info("Async Create Container Result: " + httpevent.toString());
+
+                            // Register the container queue
+                            registerHandler(httpevent.getObject("Response").getObject("Body").getString("Id"));
+
+                            // reply with the resultset
+                            message.reply(httpevent);
+
+                        }
+                    });
+                }
+
+
                 break;
             default:
                 message.reply(new JsonObject().putString("error", "no such action is supported"));
@@ -296,7 +335,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private void doRegisterDocker(Message<JsonObject> message) {
         doUnregisterDocker(message);
         String hostname = getMandatoryString("hostname", message);
-        logger.info("Registering docker server: " + hostname);
+//        logger.info("Registering docker server: " + hostname);
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
         docks.add(hostname);
@@ -304,7 +343,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
     private void doUnregisterDocker(Message<JsonObject> message) {
         String hostname = getMandatoryString("hostname", message);
-        logger.info("Unregistering docker server: " + hostname);
+//        logger.info("Unregistering docker server: " + hostname);
 		// call remove twice to de-dup TODO make a periodic health check for docks in list
         docks.remove(hostname);
     }

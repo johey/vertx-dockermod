@@ -230,7 +230,7 @@ Response
 ```
 
 ### List Containers
-lists all running and stopped containers on the docker daemon instance.
+lists all running and stopped containers on this / a docker daemon instance. not the entire cluster!
 
 Request
 ```

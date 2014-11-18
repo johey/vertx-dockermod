@@ -1,6 +1,7 @@
 package com.deblox.docker;
 
 import org.vertx.java.busmods.BusModBase;
+import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.eventbus.EventBus;
@@ -35,6 +36,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private String clusterAddress;
     private String localAddress;
     private EventBus eb;
+    private Long taskTimeout;
 
     // shutdown hook
     public void stop() {
@@ -98,6 +100,10 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         localAddress = clusterAddress + "." + hostname;
         logger.info("clusterAddress: " + clusterAddress);
         logger.info("localAddress: " + localAddress);
+
+        // performance settings
+        taskTimeout = getOptionalLongConfig("taskTimeout", 250); // timeout when distributing tasks to other instances of dockerMod
+        logger.info("taskTimeout: " + taskTimeout);
 
         // subscribe
         logger.info("DockerMod registering handlers");
@@ -177,32 +183,43 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 break;
 
             case "list-containers":
-                url = "/containers/json?all=1";
-                doHttpRequest(method, url, map, body, message);
+                // should request list of containers from entire cluster, then respond TODO FIXME
+
+                // if all is false, just respond with this nodes list
+                if ( ! message.body().getBoolean("all", false)) {
+                    url = "/containers/json?all=1"; // all in here is for running / stopped containers also!
+                    doHttpRequest(method, url, map, body, message);
+                } else {
+                    // query the cluster, give back a larger response
+                    message.body().removeField("all"); // strip to avoid inception
+                    Integer count = docks.size(); // set the number of responses we expect
+                    logger.info("Querying entire cluster of " +count+ " nodes");
+                    final ResponseConcentrator rc = new ResponseConcentrator();
+                    rc.setExpectedResponseCount(count);
+                    rc.setOriginalMessage(message);
+
+                    Iterator d = docks.iterator();
+                    while (d.hasNext()) {
+                        eb.sendWithTimeout(clusterAddress + "." + d.next(), message.body(), taskTimeout, new Handler<AsyncResult<Message<JsonObject>>>() {
+                            @Override
+                            public void handle(AsyncResult<Message<JsonObject>> event) {
+                                if (event.succeeded()) {
+                                    rc.resultUpdate(event.result().body());
+                                } else {
+                                    logger.warning("Error, bus timeout");
+                                    rc.resultUpdate(new JsonObject().putString("error", "timeout"));
+                                }
+                            }
+                        });
+                    }
+
+                }
                 break;
 
             case "list-images":
                 url = "/images/json";
                 doHttpRequest(method, url, map, body, message);
                 break;
-
-//            case "create-container":
-//                body = new NewContainerBuilder().createC( getMandatoryString("image", message) ).toJson();
-//                logger.info("Creating instance: " + body.toString());
-//                url = "/containers/create";
-//                method = "POST";
-//
-//                // compare the ports requirements to this hosts state, ...
-//
-//                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
-//                    @Override
-//                    public void handle(JsonObject event) {
-//                        logger.info("Async Create Container Result: " + event.toString());
-//                        registerHandler(event.getObject("Response").getObject("Body").getString("Id"));
-//                        message.reply(event);
-//                    }
-//                });
-//                break;
 
             case "create-raw-container":
                 body = getMandatoryObject("body", message);
@@ -264,13 +281,11 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
                 // if the message containes the field instances, prepare to spawn many across the cluster
                 if (message.body().containsField("instances")) {
-//                if (message.body().getInteger("instances", 0) != 0) {
-                    logger.info("Creating multiple containers because instances is present");
 
+                    logger.info("Creating multiple containers because instances is present");
 
                     // copy the docks list of other docker instances
                     Set<String> tmpDocks = docks; // copy the docks list
-//                    tmpDocks.remove(hostname); // pop myself
                     final Iterator<String> d = tmpDocks.iterator(); // randomize how TODO FIXME
 
                     // for count loop
@@ -298,14 +313,17 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                             address = clusterAddress;
                         }
 
-
-                        eb.send(address, message.body(), new Handler<Message<JsonObject>>() {
+                        eb.sendWithTimeout(address, message.body(), taskTimeout, new Handler<AsyncResult<Message<JsonObject>>>() {
                             @Override
-                            public void handle(Message<JsonObject> event) {
-                                rc.resultUpdate(event.body());
+                            public void handle(AsyncResult<Message<JsonObject>> event) {
+                                if (event.succeeded()) {
+                                    rc.resultUpdate(event.result().body());
+                                } else {
+                                    logger.warning("Error, bus timeout");
+                                    rc.resultUpdate(new JsonObject().putString("error", "timeout"));
+                                }
                             }
                         });
-
                     }
 
                 } else {
@@ -323,7 +341,6 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                         }
                     });
                 }
-
 
                 break;
             default:

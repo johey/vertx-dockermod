@@ -8,7 +8,9 @@ import org.vertx.java.core.json.JsonObject;
 /**
  * Created by keghol on 18/11/14.
  *
- * instantiates it with a count, and a original message, each subsequent eventbus message
+ * awats a certin number of "callbacks" and then responds to a message with results from each callee.
+ *
+ * instantiates this with a count, and a original message, each subsequent eventbus message
  * whos response you are interrested in should call this.resultUpdate
  *
  * e.g:
@@ -25,14 +27,13 @@ import org.vertx.java.core.json.JsonObject;
 
  */
 public class ResponseConcentrator {
-    private Integer expectedResponseCount;
-    private JsonArray resultArray = new JsonArray();
+    private Integer expectedResponseCount; // number of responses expected
+    private JsonArray resultArray = new JsonArray(); // array to store results in from callee's
+    private Message originalMessage; // the original message we will reply to with all the results
 
     public void setOriginalMessage(Message originalMessage) {
         this.originalMessage = originalMessage;
     }
-
-    private Message originalMessage;
 
     public void setExpectedResponseCount(Integer expectedResponseCount) {
         this.expectedResponseCount = expectedResponseCount;

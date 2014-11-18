@@ -9,5 +9,6 @@
   "restService": true,
   "announceInterval": 1250,
   "registerConsumer": true,
-  "trackingServiceInterval": 10000
+  "trackingServiceInterval": 10000,
+  "taskTimeout": 250
 }

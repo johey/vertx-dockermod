@@ -63,12 +63,6 @@ public class HttpService extends BusModBase {
                         JsonObject document = new JsonObject(event.toString());
                         String address = clusterAddress;
 
-//                        // if start-container is requested, set the queue to the instance ID
-//                        switch(document.getString("action")) {
-//                            case "start-container":
-//                                logger.info("Setting queue to instance ID: " +document.getString("id") );
-//                                address = document.getString("id");
-//                        }
 
                         // if an id is in the request, direct the call to it
                         if (document.getString("id", null) != null) {

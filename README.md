@@ -1,20 +1,75 @@
-# deblox.Docker
+# DockerMod
+(c) deBlox
 
-Cluster your docker instances! DockerMod runs on each host which has a docker daemon running, and the DockerMod instances then self-cluster to create a messagebus where docker instances can be controller from.
+A masterless, auto-discoverying clustering solution for Docker. No centralalized anything, utilizing VertX.io eventbus for distributed event processing.
 
-# Under heavy development.
-Far from anywhere!
+DockerMod clusters all your Docker instances! It runs on each host which has a Docker daemon and self-cluster to create a distributed messagebus where docker instances can be controller from.
 
-## Installation
-This module should be run on every host that runs docker daemon.
-DockerMod automatically clusters and using the webui on any one node should
-grant instance control anywhere in the cluster.
+## Features
+
+* All nodes are equal, no central super-nodes
+* Zero persistent state information
+* REST API
+* Per container-id EventBus endpoints
+* Clusterwide EventBus queries and enquiries
+* Templated containers
+* Fairly even distribution of bulk container creations
+
+
+## Configuration and Defaults
+
+#### Dockerd
+Dockerd should be configured to listen on a tcp socket via the -H flag in /etc/defaults/docker or similar. e.g. -H 0.0.0.0:5555.
+
+#### Dockermod Config
+The config file is passed as an argument -conf "filename" when running either as a mod or in embedded mode. 
+
+##### conf.json
+
+```json
+{
+  "main": "com.deblox.docker.DockerMod", // main class to boot
+  "services": ["com.deblox.docker.services.ContainerTrackingService", "com.deblox.docker.services.HttpService"], // services classes to boot
+  "clusterAddress": "deblox", // cluster addressing schema prefix
+  "dockerHost": "localhost", // docker daemon for this instance of DockerMod add -H 0.0.0.0:5555 to dockerd startup
+  "dockerPort": 5555, // docker daemon port
+  "announceInterval": 1250, // announce self to cluster interval
+  "trackingServiceInterval": 10000, // how often to update in-memory state grids
+  "taskTimeout": 2500 // default timeout for chained requests
+}
+```
+
+##### cluster.xml
+
+Cluster discovery is configured via hazelcasts cluster.xml, in fatjar ( embedded ) mode, this file is built into the resources of the artifact, if running DockerMod as a vertx module, the cluster.xml needs to be placed within the $VERTX_HOME conf directory.
+
+Cluster partitioning, members and ports are all configured via cluster.xml, see hazelcasts documentation for more details.
+
+#### Templates
+
+Containers can be described in templates which follow the Docker API create-container specs.
+
+## Installation and Running
+
+DockerMod only needs to be started on each host that runs a Docker daemon. It can either be launched as a vertx module or run as a fatjar.
+
+**runmod**
+
+```shell
+vertx runmod com.deblox~dockermod~1.0.0.0-final -conf /some/conf.json -cluster -cluster-host myhostname
+```
+
+**fatjar**
+
+```shell
+java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host myhostname
+```
 
 ## Json Messages
-DockerMod speaks json over messagebus. The HttpService accepts json documents via POST.
 
+DockerMod speaks JSON over the EventBus and its HttpService.
 
-## Running (dev mode)
+## Running in dev mode
 
 ### Tests
 ./gradlew test -i
@@ -22,19 +77,35 @@ DockerMod speaks json over messagebus. The HttpService accepts json documents vi
 ### Daemon
 ./gradlew runMod -i
 
-### FatJar cluster
- /opt/jdk1.7.0_72/bin/java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host app0126.proxmox.swe1.unibet.com
 
-### Some Curl Tests
+## Json / REST messages
 
-curl -X   POST --data '{"action": "create-unibet-container", "template": "test", "instances": 20}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
+All requests can be done over EventBus or REST, all REST requests are directed to ANY DockerMod instance on the "/" context. 
+
+Any event which is directed to a specific existing container in the cluster needs to be sent to a queue with the same name as the Id of the container. Using the REST API takes care of when to publish and when to send messages and how to route them, so the REST API is the preferred mechanism.
+
+### Curl Examples
+
+Create 4 containers based on a template
+
+```shell
+curl -X POST --data '{"action": "create-container", "template": "test", "instances": 4}' app0126.proxmox.swe1.unibet.com:8080 | python -m json.tool
+```
+
+Create a standard ubuntu container
+
+```shell
+curl -X POST --data '{"action": "create-container", "image": "ubuntu"}' app0126.proxmox.swe1.unibet.com:8080 | python -m json.tool
+```
 
 
 ### Register DockerMod Instance
-announce a new DockerMod instance in the cluster, used when adding a docker daemon to the pool.
+
+Announce a new DockerMod instance in the cluster, used when adding a Docker daemon to the pool.
 
 Request
-```
+
+```json
 {
   "action": "register",
   "hostname": "sthmaclt009.local"
@@ -46,8 +117,9 @@ No Response
 ### Unregister DockerMod Instance
 removes the DockerMod instance from the pool, running instances are left running within docker daemon.
 
-Request
-```
+Request to `clusterAddress` or REST
+
+```json
 {
   "action": "unregister",
   "hostname": "sthmaclt009.local"
@@ -56,25 +128,31 @@ Request
 
 No Response
 
-
-
 ### Create Container
 
-Create a new container either from template or by specifying OS image to use. New instances are automatically subscribed to a queue
-matching the Id of the container.
+Create a new container either from a template or by specifying base image to use. 
 
+When creating a new container, a new EventBus endpoint is created within the cluster with theId of the created container as the final endpoint. This endpoint is then used for directing requests to the DockerMod instance who "owns" that container. The HttpService's REST API takes care of routing messages to container endpoints whenever the 'id' field is present in a request.
+
+When passing the instances argument with the request, multiple containers are requested in evenly distributed manner across the cluster, if the number of instances requested is greater than the cluster size, the remaining instances are spawned via the clusterAddress which would round-robin onto the various DockerMod instances. The response will contain a list of "containers" which contains the response from each DockerMod instance who participated in the request.
+
+Templates are json documents which reside in the resources directory of the application, when template is specified, the json document is read and passed on to the Docker daemon in the create-container request. The template is the same syntax as the Docker create container json message in the Docker API specs.
+
+Image is the base image to base the new container off, either template OR image must be specified.
 
 Request
-```
+
+```json
 {
-    "action": "create-unibet-container",
-    "template": "sometemplatename", // if present, load a template
+    "action": "create-container",
+    "template": "sometemplatename", // if present, load a template.json
     "image": ubuntu, // ignored if template is present, specified OS image to use
     "instances": 2 // number of instances to boot round-robin in the cluster
 }
 ```
 
 Curl Request
+
 ```
 curl -X   POST --data '{"action": "create-container", "template": "test", "instances": 2}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
 
@@ -83,7 +161,7 @@ curl -X   POST --data '{"action": "create-container", "image": "ubuntu"}' app012
 
 Response if instances specified
 
-```
+```json
 {
     "containers": [
         {
@@ -117,7 +195,8 @@ Response if instances specified
 ```
 
 Response if instances NOT specified
-```
+
+```json
 {
     "Content-Length": "90",
     "Content-Type": "application/json",
@@ -134,18 +213,26 @@ Response if instances NOT specified
 ```
 
 ### Start Container
-start a previously created container
+Start a previously created container. This request needs to be sent to the EventBus endpoint with the same name as the container id. e.g the hash below. Or any REST API service. A response containing which instance your container is running on will be received.
 
 Request
-```
+
+```json
 {
     "action": "start-container",
     "id": "f1e3db7261a9f477577c46ba4c033a46678aafabd8c866c1dad70255e35a9ead"
 }
 ```
 
-Response
+Curl Request
+
+```shell
+curl -X POST --data '{"action": "start-container", "id": "b276fbe"}' app0126.proxmox.swe1.unibet.com:8080 | python -m json.tool
 ```
+
+Response
+
+```json
 {
     "Date": "Mon, 17 Nov 2014 15:28:05 GMT",
     "Response": "",
@@ -155,10 +242,13 @@ Response
 ```
 
 ### List Images
-returns a list of images on 'this' DockerMod instance. These are images which have been downloaded to this instance at some point.
+Returns a list of images on a specific DockerMod instance. These are images which have been downloaded to this instance at some point. 
+
+TODO FIXME cluster-wide image requests.
 
 Request
-```
+
+```json
 {
   "action": "list-images"
 }
@@ -166,7 +256,7 @@ Request
 
 Response
 
-```
+```json
 {
   "Response-Code": 200,
   "Content-Type": "application/json",
@@ -230,17 +320,27 @@ Response
 ```
 
 ### List Containers
-lists all running and stopped containers on this / a docker daemon instance. not the entire cluster!
+
+lists all running and stopped containers on a specific or ALL Docker daemon instance(s). If "all" boolean is present in the request, a list fo all containers cluster-wide is received.
 
 Request
-```
+
+```json
 {
-  "action": "list-containers"
+  "action": "list-containers",
+  "all": true // query entire cluster
 }
 ```
 
-Response
+Curl Request
+
+```shell
+curl -X POST --data '{"action": "list-containers", "all": true}' app0126.proxmox.swe1.unibet.com:8080 | python -mjson.tool 
 ```
+
+Response
+
+```json
 {
    "statusCode":200,
    "Content-Type":"application/json",
@@ -310,10 +410,11 @@ Response
 ```
 
 ### Inspect Container
-get all the details about a container, ports and everything!
+Get all the details about a container, ports mappings, and everything!
 
 Request
-```
+
+```json
 {
     "action": "inspect-container",
     "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
@@ -321,12 +422,14 @@ Request
 ```
 
 Curl Request
-```
+
+```shell
 curl -X  POST --data '{"action": "inspect-container", "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
 ```
 
 Response
-```
+
+```json
 {
     "Content-Length": "1526",
     "Content-Type": "application/json",
@@ -432,10 +535,11 @@ Response
 
 ### Create Raw Container
 
-Usefule if you want to post raw Docker API container spec to the servers
+Usefull if you want to post raw Docker API container spec to the servers
 
 Request
-```
+
+```json
 {
     "action": "create-raw-container",
     "body": json document as per docker API specs
@@ -443,6 +547,7 @@ Request
 ```
 
 Response
+
 ```
 See Create Container
 ```
@@ -450,19 +555,23 @@ See Create Container
 ### Delete Container
 
 Request
-```
+
+```json
 {
     "action": "delete-container",
     "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
 }
 ```
+
 Curl Request
-```
+
+```shell
 curl -X   POST --data '{"action": "delete-container", "id": "0d0ff6977ed1767a01526d76e414349ef87840abfe81400c6e4d9ec8116111d4"}' localhost:8080   | python -mjson.tool
 ```
 
 Response
-```
+
+```json
 {
     "Date": "Tue, 18 Nov 2014 15:48:57 GMT",
     "Response": "",
@@ -472,9 +581,11 @@ Response
 ```
 
 ### Stop Container
+Stops the container
 
 Request
-```
+
+```json
 {
     "action": "stop-container",
     "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
@@ -482,14 +593,17 @@ Request
 ```
 
 Curl Request
-```
+
+```shell
  curl -X  POST --data '{"action": "stop-container", "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"}' app0126.proxmox.swe1.unibet.com:8080  | python -m json.tool
 ```
 
 ### Restart Container
+Restarts the container
 
 Request
-```
+
+```json
 {
     "action": "restart-container",
     "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
@@ -497,14 +611,11 @@ Request
 ```
 
 
-## Laws
-* When a dockermod instance starts up, it sends/publishes a message to the cluster action:register. hostname:FQDN.
-* some node on the cluster takes that message and adds the hostname to the list of known docks which is a shared object
 
 ### UI
 
-The UI Mod Must
-* remember the Docker Server hostname where a desired instance is hosted for targetted communication
+The UI Mod Must:
+
 * determine elegitilibty of a request / instance combination based on if the user has ownership rights of that instance
 * talk to auth-mod-mgr
 * never broadcast messages.

@@ -28,14 +28,14 @@ The config file is passed as an argument -conf "filename" when running either as
 
 ```json
 {
-  "main": "com.deblox.docker.DockerMod", // main class to boot
-  "services": ["com.deblox.docker.services.ContainerTrackingService", "com.deblox.docker.services.HttpService"], // services classes to boot
-  "clusterAddress": "deblox", // cluster addressing schema prefix
-  "dockerHost": "localhost", // docker daemon for this instance of DockerMod add -H 0.0.0.0:5555 to dockerd startup
-  "dockerPort": 5555, // docker daemon port
-  "announceInterval": 1250, // announce self to cluster interval
-  "trackingServiceInterval": 10000, // how often to update in-memory state grids
-  "taskTimeout": 2500 // default timeout for chained requests
+  "main": "com.deblox.docker.DockerMod",
+  "services": ["com.deblox.docker.services.ContainerTrackingService", "com.deblox.docker.services.HttpService"],
+  "clusterAddress": "deblox",
+  "dockerHost": "localhost",
+  "dockerPort": 5555,
+  "announceInterval": 1250,
+  "trackingServiceInterval": 10000,
+  "taskTimeout": 2500
 }
 ```
 

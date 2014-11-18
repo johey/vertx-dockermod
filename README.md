@@ -132,7 +132,7 @@ No Response
 
 Create a new container either from a template or by specifying base image to use. 
 
-When creating a new container, a new EventBus endpoint is created within the cluster with theId of the created container as the final endpoint. This endpoint is then used for directing requests to the DockerMod instance who "owns" that container. The HttpService's REST API takes care of routing messages to container endpoints whenever the 'id' field is present in a request.
+When creating a new container, a new EventBus endpoint is created within the cluster with the id of the created container as the final endpoint. This endpoint is then used for directing requests to the DockerMod instance who "owns" that container. The HttpService's REST API takes care of routing messages to container endpoints whenever the 'id' field is present in a request.
 
 When passing the instances argument with the request, multiple containers are requested in evenly distributed manner across the cluster, if the number of instances requested is greater than the cluster size, the remaining instances are spawned via the clusterAddress which would round-robin onto the various DockerMod instances. The response will contain a list of "containers" which contains the response from each DockerMod instance who participated in the request.
 
@@ -146,7 +146,7 @@ Request
 {
     "action": "create-container",
     "template": "sometemplatename",
-    "image": ubuntu,
+    "image": "ubuntu",
     "instances": 2
 }
 ```
@@ -328,7 +328,7 @@ Request
 ```json
 {
   "action": "list-containers",
-  "all": true // query entire cluster
+  "all": true
 }
 ```
 
@@ -542,7 +542,7 @@ Request
 ```json
 {
     "action": "create-raw-container",
-    "body": json document as per docker API specs
+    "body": {"_comment": "json document as per Docker API"}
 }
 ```
 

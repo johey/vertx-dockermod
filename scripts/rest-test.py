@@ -3,7 +3,7 @@
 import requests
 
 url = 'http://app0126.proxmox.swe1.unibet.com:8080/'
-params = '{"action": "create-unibet-container", "template": "test"}'
+params = '{"action": "create-container", "template": "test"}'
 
 def nc():
 	response = requests.post(url, data=params)

@@ -456,6 +456,10 @@ Request
     "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
 }
 ```
+Curl Request
+```
+curl -X   POST --data '{"action": "delete-container", "id": "0d0ff6977ed1767a01526d76e414349ef87840abfe81400c6e4d9ec8116111d4"}' localhost:8080   | python -mjson.tool
+```
 
 Response
 ```

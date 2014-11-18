@@ -1,6 +1,7 @@
 package com.deblox.docker.services;
 
 import org.vertx.java.busmods.BusModBase;
+import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.eventbus.EventBus;
@@ -25,6 +26,7 @@ public class HttpService extends BusModBase {
     private String clusterAddress;
     private String localAddress;
     private String hostname;
+    private long taskTimeout;
 
     private Set<String> docks;
 
@@ -53,6 +55,7 @@ public class HttpService extends BusModBase {
         localAddress = clusterAddress + "." + hostname;
 
         SERVER_PORT = getOptionalIntConfig("restServicePort", 8080);
+        taskTimeout = getOptionalLongConfig("taskTimeout", 2500);
         logger.info("HttpService listening on port " + SERVER_PORT);
 
         routeMatcher.post("/", new Handler<HttpServerRequest>() {
@@ -71,19 +74,23 @@ public class HttpService extends BusModBase {
                         }
 
                         logger.info("HttpService got rest request " + document.toString());
-                        logger.info("HttpService Forwarding request to cluster...");
+                        logger.info("HttpService Forwarding request to cluster with timeout: " + taskTimeout );
 
+                        eventBus.sendWithTimeout(address, document, taskTimeout, new Handler<AsyncResult<Message<JsonObject>>>() {
+                            public void handle(AsyncResult<Message<JsonObject>> message) {
 
-
-                        eventBus.send(address, document, new Handler<Message<JsonObject>>() {
-                            public void handle(Message<JsonObject> message) {
-                                logger.info("HttpService got response from MSGBUS: " + message.body().toString());
-                                if (message.body().getString("status") != "error") {
-                                    logger.info("HttpService got response");
-                                    req.response().end(message.body().toString());
+                                if (message.succeeded()) {
+                                    logger.info("HttpService got response from eventbus: " + message.result().body().toString());
+                                    if (message.result().body().getString("status") != "error") {
+                                        logger.info("HttpService got response");
+                                        req.response().end(message.result().body().toString());
+                                    } else {
+                                        logger.warning("HttpService error in eventbus response");
+                                        req.response().end("FAILURE: " + message.result().body());
+                                    }
                                 } else {
-                                    logger.warning("HttpService no response");
-                                    req.response().end("FAILURE: " + message.body());
+                                    logger.warning("HttpService timeout on eventbus");
+                                    req.response().end("timeout or no such id");
                                 }
 
                             }

@@ -10,5 +10,5 @@
   "announceInterval": 1250,
   "registerConsumer": true,
   "trackingServiceInterval": 10000,
-  "taskTimeout": 250
+  "taskTimeout": 2500
 }

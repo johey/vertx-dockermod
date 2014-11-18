@@ -447,6 +447,26 @@ Response
 See Create Container
 ```
 
+### Delete Container
+
+Request
+```
+{
+    "action": "delete-container",
+    "id": "b276fbefc5c5d852a3c34a2999d8b26cb473e1a96ff611fe67f65f9cf635c70f"
+}
+```
+
+Response
+```
+{
+    "Date": "Tue, 18 Nov 2014 15:48:57 GMT",
+    "Response": "",
+    "dockerInstance": "unisthlt033.unibet.com",
+    "statusCode": 204
+}
+```
+
 ### Stop Container
 
 Request

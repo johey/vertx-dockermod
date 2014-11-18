@@ -36,7 +36,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private String clusterAddress;
     private String localAddress;
     private EventBus eb;
-    private Long taskTimeout;
+    private long taskTimeout;
 
     // shutdown hook
     public void stop() {
@@ -340,8 +340,22 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                         }
                     });
                 }
-
                 break;
+
+            case "delete-container":
+                method="DELETE";
+                String id = getMandatoryString("id", message);
+                logger.info("Deleting container id: " + id );
+                url = "/containers/" + id;
+                doAsyncHttpRequest(method, url, map, body, message, new Handler<JsonObject>() {
+                    @Override
+                    public void handle(JsonObject event) {
+                        logger.info("Completed Delete Event: " + event);
+                        message.reply(event);
+                    }
+                });
+                break;
+
             default:
                 message.reply(new JsonObject().putString("error", "no such action is supported"));
                 break;

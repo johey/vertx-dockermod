@@ -260,7 +260,6 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                 break;
 
             case "create-container":
-
                 // check if template is specified
                 if (message.body().containsField("template")) {
                     logger.info("attempting to load template: " + getMandatoryString("template", message));

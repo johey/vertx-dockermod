@@ -145,9 +145,9 @@ Request
 ```json
 {
     "action": "create-container",
-    "template": "sometemplatename", // if present, load a template.json
-    "image": ubuntu, // ignored if template is present, specified OS image to use
-    "instances": 2 // number of instances to boot round-robin in the cluster
+    "template": "sometemplatename",
+    "image": ubuntu,
+    "instances": 2
 }
 ```
 

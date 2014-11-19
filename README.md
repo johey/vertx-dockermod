@@ -24,12 +24,26 @@ Fatjar
 ./gradlew fatjar
 ```
 
-## Running
-
-Fatjar
+Module (not ready!)
 
 ```
-java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host myhostname
+./gradlew build
+```
+
+## Installation and Running
+
+DockerMod only needs to be started on each host that runs a Docker daemon. It can either be launched as a vertx module or run as a fatjar.
+
+**runmod**
+
+```shell
+vertx runmod com.deblox~dockermod~1.0.0.0-final -conf /some/conf.json -cluster -cluster-host myhostname
+```
+
+**fatjar**
+
+```shell
+java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host $HOSTNAME
 ```
 
 ## Configuration and Defaults
@@ -77,21 +91,6 @@ cluster.xml static node definitions
 
 Containers can be described in templates which follow the Docker API create-container specs.
 
-## Installation and Running
-
-DockerMod only needs to be started on each host that runs a Docker daemon. It can either be launched as a vertx module or run as a fatjar.
-
-**runmod**
-
-```shell
-vertx runmod com.deblox~dockermod~1.0.0.0-final -conf /some/conf.json -cluster -cluster-host myhostname
-```
-
-**fatjar**
-
-```shell
-java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host myhostname
-```
 
 ## Json Messages
 

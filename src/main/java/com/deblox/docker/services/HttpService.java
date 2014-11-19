@@ -16,6 +16,10 @@ import java.net.UnknownHostException;
 import java.util.Set;
 import java.util.logging.Logger;
 
+/*
+A simple REST wrapper to the eventbus
+ */
+
 public class HttpService extends BusModBase {
     private int SERVER_PORT;
     private Logger logger;

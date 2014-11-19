@@ -11,6 +11,9 @@ import java.util.logging.Logger;
 
 /**
  * Created by keghol on 16/11/14.
+ *
+ * A hook for future container tracking and management.
+ *
  */
 public class ContainerTrackingService extends BusModBase implements Handler<Message<JsonObject>> {
 

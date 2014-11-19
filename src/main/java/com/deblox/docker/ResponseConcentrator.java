@@ -8,10 +8,10 @@ import org.vertx.java.core.json.JsonObject;
 /**
  * Created by keghol on 18/11/14.
  *
- * awats a certin number of "callbacks" and then responds to a message with results from each callee.
+ * awaits a certain number of "callbacks" and then responds to a message with results from each callee.
  *
  * instantiates this with a count, and a original message, each subsequent eventbus message
- * whos response you are interrested in should call this.resultUpdate
+ * who's response you are interested in should call this.resultUpdate
  *
  * e.g:
  final ResponseConcentrator rc = new ResponseConcentrator();

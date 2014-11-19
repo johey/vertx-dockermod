@@ -37,6 +37,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
     private String localAddress;
     private EventBus eb;
     private long taskTimeout;
+    private long newContainerTimeout;
 
     // shutdown hook
     public void stop() {
@@ -52,6 +53,13 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 		logger.info("DockerMod registering with queue: " + address);
 		eb.registerHandler(address, this);
 	}
+
+    // called when we want to subscribe to eventbus
+    private void unRegisterHandler(String address) {
+        logger.info("DockerMod unregistering queue: " + address);
+        eb.unregisterHandler(address, this);
+    }
+
 
     // debug stuff
     private void dumpSets() {
@@ -104,6 +112,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
         // performance settings
         taskTimeout = getOptionalLongConfig("taskTimeout", 250); // timeout when distributing tasks to other instances of dockerMod
         logger.info("taskTimeout: " + taskTimeout);
+        newContainerTimeout = getOptionalLongConfig("newContainerTimeout", 15000);
 
         // subscribe
         logger.info("DockerMod registering handlers");
@@ -223,6 +232,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
             case "create-raw-container":
                 body = getMandatoryObject("body", message);
+                logger.info("Creating raw container with body: " + body);
                 doHttpRequest(method, url, map, body, message);
                 break;
 
@@ -312,7 +322,7 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                             address = clusterAddress;
                         }
 
-                        eb.sendWithTimeout(address, message.body(), taskTimeout, new Handler<AsyncResult<Message<JsonObject>>>() {
+                        eb.sendWithTimeout(address, message.body(), newContainerTimeout, new Handler<AsyncResult<Message<JsonObject>>>() {
                             @Override
                             public void handle(AsyncResult<Message<JsonObject>> event) {
                                 if (event.succeeded()) {
@@ -332,7 +342,11 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                             logger.info("Async Create Container Result: " + httpevent.toString());
 
                             // Register the container queue
-                            registerHandler(httpevent.getObject("Response").getObject("Body").getString("Id"));
+                            try {
+                                registerHandler(httpevent.getObject("Response").getObject("Body").getString("Id"));
+                            } catch (Exception e) {
+                                logger.warning("Unable to create an event listener");
+                            }
 
                             // reply with the resultset
                             message.reply(httpevent);
@@ -351,6 +365,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
                     @Override
                     public void handle(JsonObject event) {
                         logger.info("Completed Delete Event: " + event);
+                        // TODO FIXME unregister handler for id
+                        unRegisterHandler(getMandatoryString("id", message));
                         message.reply(event);
                     }
                 });

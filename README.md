@@ -16,6 +16,21 @@ DockerMod clusters all your Docker instances! It runs on each host which has a D
 * Fairly even distribution of bulk container creations
 
 
+## Building
+
+Fatjar
+
+```
+./gradlew fatjar
+```
+
+## Running
+
+Fatjar
+```
+java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host myhostname
+```
+
 ## Configuration and Defaults
 
 #### Dockerd
@@ -44,6 +59,18 @@ The config file is passed as an argument -conf "filename" when running either as
 Cluster discovery is configured via hazelcasts cluster.xml, in fatjar ( embedded ) mode, this file is built into the resources of the artifact, if running DockerMod as a vertx module, the cluster.xml needs to be placed within the $VERTX_HOME conf directory.
 
 Cluster partitioning, members and ports are all configured via cluster.xml, see hazelcasts documentation for more details.
+
+cluster.xml static node definitions
+
+```xml
+ 			<tcp-ip enabled="true">
+                <hostname>10.69.32.113</hostname>
+                <hostname>10.69.32.114</hostname>
+                <interface>10.69.32.113:5701</interface>
+                <interface>10.69.32.114:5701</interface>
+          	</tcp-ip>
+
+```
 
 #### Templates
 

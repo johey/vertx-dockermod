@@ -90,7 +90,7 @@ public class HttpService extends BusModBase {
                                     }
                                 } else {
                                     logger.warning("HttpService timeout on eventbus");
-                                    req.response().end("timeout or no such id");
+                                    req.response().end(new JsonObject().putString("status", "timeout or no such id").toString());
                                 }
 
                             }

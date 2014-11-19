@@ -27,6 +27,7 @@ Fatjar
 ## Running
 
 Fatjar
+
 ```
 java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host myhostname
 ```

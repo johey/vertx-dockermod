@@ -4,7 +4,7 @@
   "main": "com.deblox.docker.DockerMod",
   "services": ["com.deblox.docker.services.ContainerTrackingService", "com.deblox.docker.services.HttpService"],
   "clusterAddress": "deblox",
-  "dockerHost": "app0126.proxmox.swe1.unibet.com",
+  "dockerHost": "localhost",
   "dockerPort": 5555,
   "announceInterval": 1250,
   "trackingServiceInterval": 10000,

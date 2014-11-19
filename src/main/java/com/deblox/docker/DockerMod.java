@@ -154,8 +154,8 @@ public class DockerMod extends BusModBase implements Handler<Message<JsonObject>
 
     @Override
     public void handle(final Message<JsonObject> message) {
-        logger.info("DockerMod Got message: " + message.body());
-        logger.info("Address: " + message.address());
+//        logger.info("DockerMod Got message: " + message.body());
+//        logger.info("Address: " + message.address());
 
         final String action = getMandatoryString("action", message);
         JsonObject body = message.body().getObject("body", new JsonObject());

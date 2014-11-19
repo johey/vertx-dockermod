@@ -22,7 +22,7 @@ DockerMod clusters all your Docker instances! It runs on each host which has a D
 Dockerd should be configured to listen on a tcp socket via the -H flag in /etc/defaults/docker or similar. e.g. -H 0.0.0.0:5555.
 
 #### Dockermod Config
-The config file is passed as an argument -conf "filename" when running either as a mod or in embedded mode. 
+The config file is passed as an argument -conf "filename" when running either as a mod or in fatjar / embedded mode. 
 
 ##### conf.json
 

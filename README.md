@@ -18,13 +18,13 @@ DockerMod clusters all your Docker instances! It runs on each host which has a D
 
 ## Building
 
-Fatjar
+Fatjar ( Recommended! )
 
 ```
 ./gradlew fatjar
 ```
 
-Module (not ready!)
+Module ( Not ready yet! )
 
 ```
 ./gradlew build
@@ -34,13 +34,13 @@ Module (not ready!)
 
 DockerMod only needs to be started on each host that runs a Docker daemon. It can either be launched as a vertx module or run as a fatjar.
 
-**runmod**
+**runmod** (not ready yet!)
 
 ```shell
 vertx runmod com.deblox~dockermod~1.0.0.0-final -conf /some/conf.json -cluster -cluster-host myhostname
 ```
 
-**fatjar**
+**fatjar** (recommended!)
 
 ```shell
 java -jar docker-1.0.0-final-fat.jar -conf conf.json  -cluster  -cluster-host $HOSTNAME

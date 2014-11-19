@@ -65,7 +65,8 @@ The config file is passed as an argument -conf "filename" when running either as
   "dockerPort": 5555,
   "announceInterval": 1250,
   "trackingServiceInterval": 10000,
-  "taskTimeout": 2500
+  "taskTimeout": 2500,
+  "newContainerTimeout": 15000
 }
 ```
 
